@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -87,8 +88,14 @@ const App: React.FC = () => {
             errorObject.suggestion = "Por favor, reformule seu tema e/ou prompt de imagem para estar de acordo com as diretrizes de uso e evite tópicos sensíveis.";
         } else if (msg.includes('[VEO_KEY_ERROR]')) {
             errorObject.title = "Chave de API Inválida para Vídeo";
-            errorObject.message = "A chave de API selecionada não tem permissão para usar o serviço de geração de vídeo ou não foi encontrada.";
-            errorObject.suggestion = "Por favor, clique no botão para selecionar a chave de API novamente e escolha uma que seja válida para o serviço de vídeo.";
+            errorObject.message = "A chave de API selecionada não tem permissão para usar o serviço de vídeo ou não foi encontrada.";
+            errorObject.suggestion = "A janela para seleção de chaves foi reaberta. Por favor, escolha uma chave válida e tente gerar novamente.";
+            // Proactively open the key selection dialog to streamline the user's recovery path.
+            // @ts-ignore
+            if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+                // @ts-ignore
+                window.aistudio.openSelectKey();
+            }
         } else if (msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('authentication')) {
             errorObject.title = "Erro de Configuração";
             errorObject.message = "Não foi possível conectar ao serviço de IA devido a um problema de autenticação.";

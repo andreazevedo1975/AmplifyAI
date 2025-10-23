@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { PostData } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
@@ -700,9 +701,18 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     } catch (error) {
         console.error("Error generating full video:", error);
         const errorMessage = error instanceof Error ? error.message : "Falha ao gerar o vídeo completo.";
-        setMediaError(errorMessage);
+        
         if (errorMessage.includes('[VEO_KEY_ERROR]')) {
+          setMediaError("Chave de API inválida. A janela de seleção foi reaberta para você. Por favor, escolha uma chave válida e tente novamente.");
           setIsVeoKeySelected(false);
+          // Proactively open the key selection dialog to streamline the fix.
+          // @ts-ignore
+          if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+              // @ts-ignore
+              window.aistudio.openSelectKey();
+          }
+        } else {
+            setMediaError(errorMessage);
         }
     } finally {
         setIsGeneratingMedia(false);

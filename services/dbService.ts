@@ -38,13 +38,16 @@ export async function addPost(post: PostData): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.put(post);
+    store.put(post);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => {
-        console.error('Error adding post:', request.error);
+    transaction.oncomplete = () => {
+      resolve();
+    };
+
+    transaction.onerror = () => {
+        console.error('Error adding post:', transaction.error);
         reject('Could not add post to the database.');
-    }
+    };
   });
 }
 
@@ -55,11 +58,14 @@ export async function getAllPosts(): Promise<PostData[]> {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.getAll();
 
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => {
-        console.error('Error getting all posts:', request.error);
+    transaction.onerror = () => {
+        console.error('Error getting all posts:', transaction.error);
         reject('Could not retrieve posts from the database.');
-    }
+    };
+    
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
   });
 }
 
@@ -68,13 +74,16 @@ export async function deletePost(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(id);
+    store.delete(id);
     
-    request.onsuccess = () => resolve();
-    request.onerror = () => {
-        console.error('Error deleting post:', request.error);
+    transaction.oncomplete = () => {
+        resolve();
+    };
+
+    transaction.onerror = () => {
+        console.error('Error deleting post:', transaction.error);
         reject('Could not delete post from the database.');
-    }
+    };
   });
 }
 
@@ -83,12 +92,15 @@ export async function clearPosts(): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.clear();
+    store.clear();
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => {
-        console.error('Error clearing posts:', request.error);
+    transaction.oncomplete = () => {
+      resolve();
+    };
+
+    transaction.onerror = () => {
+        console.error('Error clearing posts:', transaction.error);
         reject('Could not clear the database.');
-    }
+    };
   });
 }

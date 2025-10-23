@@ -1,3 +1,4 @@
+// FIX: Define and export interfaces. The previous content was incorrect and caused circular dependencies.
 export interface PostData {
   id: string;
   theme: string;
@@ -9,13 +10,13 @@ export interface PostData {
   creativityMode?: boolean;
 }
 
-export interface GeneratedContent {
-  caption: string;
-  hashtags: string;
-}
-
 export interface AppError {
   title: string;
   message: string;
   suggestion?: string;
+}
+
+export interface GeneratedContent {
+  caption: string;
+  hashtags: string;
 }

@@ -106,6 +106,71 @@ const getPlatformSpecifics = (platform: string) => {
           - **Estratégia:** Foque em palavras-chave de cauda longa e curta que os usuários pesquisariam para encontrar este vídeo. Estas serão usadas como tags do vídeo e também podem ser incluídas no final da descrição.
         `
       };
+    case 'Reddit':
+      return {
+        aspectRatio: '16:9',
+        imagePromptSuffix: 'imagem informativa, que gere discussão ou que tenha potencial para se tornar um meme, proporção 16:9, ideal para uma comunidade do Reddit.',
+        contentInstructions: `
+          - **Estrutura:** Crie um TÍTULO e um CORPO para o post, separados por uma quebra de linha clara.
+          - **Título:** O título é o mais importante. Deve ser cativante, direto e otimizado para chamar a atenção em um subreddit específico.
+          - **Corpo:** O corpo do post (a legenda) deve ser detalhado, bem-estruturado e convidar à discussão. O tom deve ser autêntico e adaptado à cultura de uma comunidade online (evite linguagem corporativa).
+        `,
+        hashtagStrategy: `
+          - **Estratégia:** Hashtags não são usadas no Reddit. Apenas forneça uma string vazia (""). O foco deve ser no título rico em palavras-chave.
+        `
+      };
+    case 'Tumblr':
+      return {
+        aspectRatio: '4:3', // Good for portrait-style images
+        imagePromptSuffix: 'imagem estética, artística ou de nicho, com um toque de humor ou profundidade, proporção 4:3, ideal para um dashboard do Tumblr.',
+        contentInstructions: `
+          - **Tom de Voz:** Informal, pessoal, espirituoso ou reflexivo.
+          - **Estrutura:** A legenda pode variar de uma frase curta e impactante a um parágrafo mais longo (conhecido como "text post"). O estilo é livre.
+        `,
+        hashtagStrategy: `
+          - **Quantidade:** Forneça de 10 a 20 tags.
+          - **Estratégia:** Tags são cruciais para descoberta. Misture tags gerais com tags muito específicas, de nicho, de fandom ou estéticas. Tags podem ser frases completas, em minúsculas (ex: "#arte digital #pensamentos aleatórios #isso é incrível"). Use o formato de hashtags (#tag).
+        `
+      };
+    case 'Quora':
+      return {
+        aspectRatio: '16:9',
+        imagePromptSuffix: 'imagem clara e informativa, como um gráfico, diagrama ou fotografia que ilustre um conceito, proporção 16:9, para apoiar uma resposta no Quora.',
+        contentInstructions: `
+          - **Estrutura:** Formate o conteúdo como uma resposta a uma pergunta implícita no tema.
+          1.  **Resposta Direta:** Comece com uma resposta direta e concisa à pergunta.
+          2.  **Desenvolvimento:** Elabore a resposta com explicações detalhadas, dados, exemplos ou listas. A clareza e a credibilidade são fundamentais.
+          3.  **Conclusão:** Termine com um parágrafo de resumo.
+        `,
+        hashtagStrategy: `
+          - **Estratégia:** Hashtags não são usadas no Quora. Apenas forneça uma string vazia (""). O conteúdo é categorizado por "Tópicos", então foque em usar palavras-chave relevantes na resposta.
+        `
+      };
+    case 'WhatsApp':
+      return {
+        aspectRatio: '9:16', // Status/Story format
+        imagePromptSuffix: 'imagem vertical, simples e impactante, com um ponto focal claro, ideal para um status de WhatsApp, proporção 9:16.',
+        contentInstructions: `
+          - **Tom de Voz:** Pessoal, direto e muito conciso. Use emojis para expressar emoção.
+          - **Estrutura:** Crie uma legenda curta para acompanhar a imagem no status. Idealmente, uma ou duas frases.
+        `,
+        hashtagStrategy: `
+          - **Estratégia:** Hashtags não são usadas no WhatsApp. Forneça uma string vazia ("").
+        `
+      };
+    case 'Telegram':
+      return {
+        aspectRatio: '4:3', // Flexible, good for channels
+        imagePromptSuffix: 'imagem informativa e de alta qualidade, adequada para um canal informativo no Telegram, proporção 4:3.',
+        contentInstructions: `
+          - **Tom de Voz:** Informativo, claro e bem estruturado.
+          - **Estrutura:** Pode ser um post mais longo, como um mini-artigo. Use formatação como **negrito** (envolvendo com **) e *itálico* (envolvendo com *) para destacar pontos importantes e melhorar a legibilidade.
+        `,
+        hashtagStrategy: `
+          - **Quantidade:** Forneça de 3 a 5 hashtags.
+          - **Estratégia:** Use hashtags para categorizar o conteúdo dentro de um canal ou grupo. Pense em palavras-chave que ajudem os membros a encontrar posts sobre um tópico específico.
+        `
+      };
     default:
       return {
         aspectRatio: '1:1',
@@ -220,7 +285,7 @@ export const generateContentWithSearch = async (theme: string, platform: string,
         const jsonString = text.substring(startIndex, endIndex + 1);
         try {
             const parsedContent: GeneratedContent = JSON.parse(jsonString);
-            if (parsedContent.caption && parsedContent.hashtags) {
+            if (parsedContent.caption && typeof parsedContent.hashtags !== 'undefined') { // Check if hashtags property exists
                 return parsedContent;
             } else {
                  // The JSON is valid, but missing required fields.
@@ -265,6 +330,9 @@ export const generateContentWithSearch = async (theme: string, platform: string,
 };
 
 export const suggestHashtags = async (baseHashtags: string, platform: string): Promise<string[]> => {
+  if (['Reddit', 'Quora', 'WhatsApp'].includes(platform) || !baseHashtags) {
+    return [];
+  }
   const prompt = `
     Você é um especialista em marketing de mídia social e tendências digitais.
     Com base nas seguintes hashtags para a plataforma "${platform}": "${baseHashtags}".
@@ -392,23 +460,29 @@ export const generateAudioFromScript = async (script: string): Promise<string> =
   }
 };
 
-export const generateVideoFromPrompt = async (prompt: string, imageBase64: string): Promise<Blob> => {
+export const generateVideoFromPrompt = async (prompt: string, imageBase64?: string): Promise<Blob> => {
   // Always create a new instance to ensure the latest API key from the dialog is used.
   const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY! });
   try {
-    let operation = await localAi.models.generateVideos({
+    
+    const payload: any = {
       model: 'veo-3.1-fast-generate-preview',
       prompt: prompt,
-      image: {
-        imageBytes: imageBase64,
-        mimeType: 'image/jpeg',
-      },
       config: {
         numberOfVideos: 1,
         resolution: '720p',
         aspectRatio: '16:9'
       }
-    });
+    };
+
+    if (imageBase64) {
+      payload.image = {
+        imageBytes: imageBase64,
+        mimeType: 'image/jpeg',
+      };
+    }
+
+    let operation = await localAi.models.generateVideos(payload);
 
     // Poll for the result
     while (!operation.done) {

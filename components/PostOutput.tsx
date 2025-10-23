@@ -15,6 +15,7 @@ import { GoogleDriveIcon } from './icons/GoogleDriveIcon';
 import { AudioIcon } from './icons/AudioIcon';
 import { VideoIcon } from './icons/VideoIcon';
 import { WarningIcon } from './icons/WarningIcon';
+import { DownloadIcon } from './icons/DownloadIcon';
 
 // Helper function to decode base64
 function decode(base64: string): Uint8Array {
@@ -133,12 +134,21 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [videoScript, setVideoScript] = useState<string | null>(null);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [scriptError, setScriptError] = useState<string | null>(null);
+  
   const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
+  const [mediaGenerationStep, setMediaGenerationStep] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // Fallback state
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+
+  // Final video state
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [finalVideoBlob, setFinalVideoBlob] = useState<Blob | null>(null);
+  
   const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(false);
   const isExternalUrl = data.imageUrl.startsWith('http');
 
@@ -260,15 +270,17 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         currentY += (captionLines.length * 5) + 10;
         
         // --- Hashtags ---
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text("Hashtags:", margin, currentY);
-        currentY += 7;
+        if (data.hashtags) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text("Hashtags:", margin, currentY);
+            currentY += 7;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 102, 204); // Blue color for hashtags
-        const hashtagLines = doc.splitTextToSize(data.hashtags, max_width);
-        doc.text(hashtagLines, margin, currentY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 102, 204); // Blue color for hashtags
+            const hashtagLines = doc.splitTextToSize(data.hashtags, max_width);
+            doc.text(hashtagLines, margin, currentY);
+        }
 
         doc.save(`amplifyai-${getCleanThemeForFilename()}.pdf`);
 
@@ -303,33 +315,35 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       const docxWidth = 600;
       const docxHeight = docxWidth / ratio;
 
+      const children = [
+          new Paragraph({
+            children: [new TextRun({ text: "Post Gerado por AmplifyAI", bold: true, size: 36 })],
+            alignment: 'center',
+          }),
+          new Paragraph({ text: "" }), // spacing
+          new Paragraph({
+            children: [new TextRun({ text: "Tema: ", bold: true, size: 28 }), new TextRun({ text: data.theme, size: 28 })],
+          }),
+           new Paragraph({ text: "" }),
+          new Paragraph({
+            children: [new ImageRun({
+              data: imageBuffer,
+              transformation: { width: docxWidth, height: docxHeight },
+            })],
+          }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ children: [new TextRun({ text: "Legenda", bold: true, size: 24 })] }),
+          ...data.caption.split('\n').map(line => new Paragraph({ text: line })),
+      ];
+
+      if (data.hashtags) {
+          children.push(new Paragraph({ text: "" }));
+          children.push(new Paragraph({ children: [new TextRun({ text: "Hashtags", bold: true, size: 24 })] }));
+          children.push(new Paragraph({ children: [new TextRun({ text: data.hashtags, color: "0066CC" })] }));
+      }
 
       const doc = new Document({
-        sections: [{
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: "Post Gerado por AmplifyAI", bold: true, size: 36 })],
-              alignment: 'center',
-            }),
-            new Paragraph({ text: "" }), // spacing
-            new Paragraph({
-              children: [new TextRun({ text: "Tema: ", bold: true, size: 28 }), new TextRun({ text: data.theme, size: 28 })],
-            }),
-             new Paragraph({ text: "" }),
-            new Paragraph({
-              children: [new ImageRun({
-                data: imageBuffer,
-                transformation: { width: docxWidth, height: docxHeight },
-              })],
-            }),
-            new Paragraph({ text: "" }),
-            new Paragraph({ children: [new TextRun({ text: "Legenda", bold: true, size: 24 })] }),
-            ...data.caption.split('\n').map(line => new Paragraph({ text: line })),
-            new Paragraph({ text: "" }),
-            new Paragraph({ children: [new TextRun({ text: "Hashtags", bold: true, size: 24 })] }),
-            new Paragraph({ children: [new TextRun({ text: data.hashtags, color: "0066CC" })] }),
-          ],
-        }],
+        sections: [{ children }],
       });
 
       const blob = await Packer.toBlob(doc);
@@ -378,12 +392,18 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     caption.style.whiteSpace = 'pre-wrap';
     caption.style.marginBottom = '30px';
 
-    const hashtags = document.createElement('p');
-    hashtags.innerText = data.hashtags;
-    hashtags.style.fontSize = '20px';
-    hashtags.style.color = '#67e8f9'; // cyan-300
-    hashtags.style.wordBreak = 'break-word';
-    hashtags.style.marginBottom = '40px';
+    container.appendChild(image);
+    container.appendChild(caption);
+    
+    if (data.hashtags) {
+        const hashtags = document.createElement('p');
+        hashtags.innerText = data.hashtags;
+        hashtags.style.fontSize = '20px';
+        hashtags.style.color = '#67e8f9'; // cyan-300
+        hashtags.style.wordBreak = 'break-word';
+        hashtags.style.marginBottom = '40px';
+        container.appendChild(hashtags);
+    }
     
     const footer = document.createElement('p');
     footer.innerText = 'Gerado por AmplifyAI';
@@ -392,9 +412,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     footer.style.color = '#94a3b8'; // slate-400
     footer.style.opacity = '0.7';
 
-    container.appendChild(image);
-    container.appendChild(caption);
-    container.appendChild(hashtags);
     container.appendChild(footer);
     
     document.body.appendChild(container);
@@ -519,6 +536,11 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           'TikTok': 'https://www.tiktok.com/',
           'Pinterest': 'https://www.pinterest.com/',
           'YouTube': 'https://studio.youtube.com/',
+          'Reddit': 'https://www.reddit.com/submit',
+          'Tumblr': 'https://www.tumblr.com/new/text',
+          'Quora': 'https://www.quora.com/',
+          'WhatsApp': 'https://web.whatsapp.com/',
+          'Telegram': 'https://t.me/',
         };
         let url = data.profileUrl || platformUrls[data.platform] || '#';
         if (data.platform === 'Twitter (X)') {
@@ -575,46 +597,118 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     }
   };
 
-  const handleGenerateMedia = async () => {
+  const handleCreateFullVideo = async () => {
     if (!videoScript) {
         setMediaError("Gere um roteiro primeiro.");
         return;
     }
+
+    // Reset states for a new run
     setIsGeneratingMedia(true);
+    setMediaGenerationStep('Iniciando processo...');
     setMediaError(null);
+    setFinalVideoUrl(null);
+    setFinalVideoBlob(null);
     setAudioUrl(null);
     setVideoUrl(null);
     setAudioBlob(null);
     setVideoBlob(null);
 
     try {
-        const audioPromise = generateAudioFromScript(videoScript).then(async base64Audio => {
-            const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
-            const wavBlob = bufferToWav(audioBuffer);
-            setAudioBlob(wavBlob);
-            setAudioUrl(URL.createObjectURL(wavBlob));
-        });
+        // Step 1: Generate Audio
+        setMediaGenerationStep('Gerando narração de áudio...');
+        const base64Audio = await generateAudioFromScript(videoScript);
+        const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
+        const audioBlobResult = bufferToWav(audioBuffer);
+        
+        // Step 2: Generate Video
+        setMediaGenerationStep('Gerando clipe de vídeo (pode levar alguns minutos)...');
+        const imageBase64 = await imageUrlToBase64(data.imageUrl);
+        const videoBlobResult = await generateVideoFromPrompt(data.theme, imageBase64);
+        
+        // Step 3: Merge (with browser compatibility check)
+        const videoCheckEl = document.createElement('video');
+        // @ts-ignore
+        const isCaptureStreamSupported = !!videoCheckEl.captureStream;
 
-        const videoPromise = imageUrlToBase64(data.imageUrl).then(async imageBase64 => {
-            const videoBlob = await generateVideoFromPrompt(data.theme, imageBase64);
-            setVideoBlob(videoBlob);
-            setVideoUrl(URL.createObjectURL(videoBlob));
+        if (!isCaptureStreamSupported) {
+            setMediaError("Seu navegador não suporta a combinação automática de vídeo. Baixe os arquivos separadamente abaixo.");
+            setAudioBlob(audioBlobResult);
+            setAudioUrl(URL.createObjectURL(audioBlobResult));
+            setVideoBlob(videoBlobResult);
+            setVideoUrl(URL.createObjectURL(videoBlobResult));
+            setIsGeneratingMedia(false);
+            setMediaGenerationStep(null);
+            return;
+        }
+
+        setMediaGenerationStep('Combinando áudio e vídeo...');
+
+        const videoEl = document.createElement('video');
+        videoEl.src = URL.createObjectURL(videoBlobResult);
+        videoEl.muted = true;
+
+        const audioEl = document.createElement('audio');
+        audioEl.src = URL.createObjectURL(audioBlobResult);
+
+        await Promise.all([
+            new Promise(res => videoEl.onloadedmetadata = res),
+            new Promise(res => audioEl.onloadedmetadata = res)
+        ]);
+        
+        // @ts-ignore
+        const videoStream = videoEl.captureStream();
+        // @ts-ignore
+        const audioStream = audioEl.captureStream();
+
+        const combinedStream = new MediaStream([
+            ...videoStream.getVideoTracks(),
+            ...audioStream.getAudioTracks()
+        ]);
+        
+        const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9,opus' });
+        const chunks: Blob[] = [];
+
+        recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) chunks.push(event.data);
+        };
+        
+        recorder.start();
+
+        await new Promise<void>((resolve, reject) => {
+             recorder.onstop = () => {
+                const finalBlob = new Blob(chunks, { type: 'video/webm' });
+                setFinalVideoBlob(finalBlob);
+                setFinalVideoUrl(URL.createObjectURL(finalBlob));
+                URL.revokeObjectURL(videoEl.src);
+                URL.revokeObjectURL(audioEl.src);
+                resolve();
+            };
+            recorder.onerror = (e) => reject(new Error(`MediaRecorder error: ${e}`));
+
+            videoEl.onended = () => {
+                setTimeout(() => { if (recorder.state === 'recording') recorder.stop() }, 100);
+            };
+
+            videoEl.play();
+            audioEl.play();
         });
         
-        await Promise.all([audioPromise, videoPromise]);
+        setMediaGenerationStep('Vídeo completo gerado com sucesso!');
 
     } catch (error) {
-        console.error("Error generating media:", error);
-        const errorMessage = error instanceof Error ? error.message : "Falha ao gerar mídia. Tente novamente.";
+        console.error("Error generating full video:", error);
+        const errorMessage = error instanceof Error ? error.message : "Falha ao gerar o vídeo completo.";
         setMediaError(errorMessage);
         if (errorMessage.includes('[VEO_KEY_ERROR]')) {
-          setIsVeoKeySelected(false); // Force re-selection
+          setIsVeoKeySelected(false);
         }
     } finally {
         setIsGeneratingMedia(false);
     }
   };
+
 
   const handleSelectVeoKey = async () => {
     // @ts-ignore
@@ -663,6 +757,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+  
+  const showHashtags = data.hashtags && data.hashtags.trim() !== '';
+  const canSuggestHashtags = !['Reddit', 'Quora', 'WhatsApp'].includes(data.platform);
 
   return (
     <div className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
@@ -726,58 +823,62 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           </div>
 
           {/* Hashtags Section */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-slate-300">{data.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'BLOCO DE HASHTAGS'}</h3>
-               <button
-                onClick={() => handleCopy(data.hashtags, 'hashtags')}
-                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
-                aria-label="Copiar hashtags"
-              >
-                <CopyIcon />
-                <span>{copied === 'hashtags' ? 'Copiado!' : 'Copiar'}</span>
-              </button>
-            </div>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
-              <p className="text-cyan-300 break-words">{data.hashtags}</p>
-            </div>
-          </div>
+          {showHashtags && (
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-lg font-semibold text-slate-300">{data.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'BLOCO DE HASHTAGS'}</h3>
+                   <button
+                    onClick={() => handleCopy(data.hashtags, 'hashtags')}
+                    className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
+                    aria-label="Copiar hashtags"
+                  >
+                    <CopyIcon />
+                    <span>{copied === 'hashtags' ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+                <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+                  <p className="text-cyan-300 break-words">{data.hashtags}</p>
+                </div>
+              </div>
+          )}
           
           {/* Hashtag Suggestions Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">Sugestões de IA</h3>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px] flex items-center justify-center">
-                {isSuggesting ? (
-                    <div className="flex items-center text-slate-400">
-                        <SmallSpinner />
-                        <span className="ml-2 text-sm">Buscando tendências...</span>
-                    </div>
-                ) : suggestionError ? (
-                    <p className="text-red-400 text-center text-sm">{suggestionError}</p>
-                ) : suggestedHashtags.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                        {suggestedHashtags.map((tag, index) => (
-                            <button 
-                                key={index}
-                                onClick={() => handleCopyTag(tag)}
-                                className="text-xs font-medium px-2.5 py-1 rounded-full text-cyan-200 bg-cyan-900/50 hover:bg-cyan-800/70 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                title="Copiar hashtag"
-                            >
-                                {copiedTag === tag ? 'Copiado!' : tag}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <button
-                        onClick={handleSuggestHashtags}
-                        className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-all duration-200"
-                    >
-                        <SparklesIcon />
-                        <span>Sugerir Mais Hashtags</span>
-                    </button>
-                )}
+          {canSuggestHashtags && showHashtags && (
+            <div>
+              <h3 className="text-lg font-semibold text-slate-300 mb-2">Sugestões de IA</h3>
+              <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px] flex items-center justify-center">
+                  {isSuggesting ? (
+                      <div className="flex items-center text-slate-400">
+                          <SmallSpinner />
+                          <span className="ml-2 text-sm">Buscando tendências...</span>
+                      </div>
+                  ) : suggestionError ? (
+                      <p className="text-red-400 text-center text-sm">{suggestionError}</p>
+                  ) : suggestedHashtags.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                          {suggestedHashtags.map((tag, index) => (
+                              <button 
+                                  key={index}
+                                  onClick={() => handleCopyTag(tag)}
+                                  className="text-xs font-medium px-2.5 py-1 rounded-full text-cyan-200 bg-cyan-900/50 hover:bg-cyan-800/70 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                  title="Copiar hashtag"
+                              >
+                                  {copiedTag === tag ? 'Copiado!' : tag}
+                              </button>
+                          ))}
+                      </div>
+                  ) : (
+                      <button
+                          onClick={handleSuggestHashtags}
+                          className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-all duration-200"
+                      >
+                          <SparklesIcon />
+                          <span>Sugerir Mais Hashtags</span>
+                      </button>
+                  )}
+              </div>
             </div>
-          </div>
+          )}
 
             {/* Video Script Section */}
             {data.platform === 'YouTube' && (
@@ -825,8 +926,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
        {/* Video Production Section */}
        {data.platform === 'YouTube' && videoScript && (
           <div className="mt-8 pt-6 border-t border-slate-700">
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">Produção de Vídeo</h3>
+            <h3 className="text-lg font-bold text-slate-300 mb-4 text-center">Produção de Vídeo Completo</h3>
             <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+              
               {!isVeoKeySelected ? (
                 <div className="text-center p-4 bg-amber-900/30 border border-amber-700 rounded-md">
                    <WarningIcon />
@@ -840,35 +942,47 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                   </button>
                 </div>
               ) : isGeneratingMedia ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col items-center text-slate-400"><SmallSpinner /><span className="mt-2 text-sm">Gerando narração de áudio...</span></div>
-                  <div className="flex flex-col items-center text-slate-400"><SmallSpinner /><span className="mt-2 text-sm">Gerando clipe de vídeo (pode levar alguns minutos)...</span></div>
+                <div className="flex flex-col items-center text-slate-400">
+                    <SmallSpinner />
+                    <span className="mt-2 text-sm font-semibold text-cyan-300">{mediaGenerationStep || "Processando..."}</span>
                 </div>
               ) : mediaError ? (
-                <p className="text-red-400 text-center text-sm">{mediaError}</p>
-              ) : audioUrl && videoUrl ? (
-                <div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                      <div>
-                          <h4 className="font-semibold mb-2">Narração de Áudio</h4>
-                          <audio controls src={audioUrl} className="w-full"></audio>
-                          <button onClick={() => audioBlob && downloadBlob(audioBlob, `narracao-${getCleanThemeForFilename()}.wav`)} className="mt-2 w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700"><AudioIcon /> Baixar Áudio (WAV)</button>
-                      </div>
-                      <div>
-                          <h4 className="font-semibold mb-2">Clipe de Vídeo (sem som)</h4>
-                          <video controls src={videoUrl} className="w-full rounded-md bg-black"></video>
-                          <button onClick={() => videoBlob && downloadBlob(videoBlob, `video-${getCleanThemeForFilename()}.mp4`)} className="mt-2 w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700"><VideoIcon /> Baixar Vídeo (MP4)</button>
-                      </div>
-                   </div>
-                   <div className="text-center p-3 bg-cyan-900/30 border border-cyan-700 rounded-md">
-                      <p className="text-cyan-200 font-semibold">Passo Final!</p>
-                      <p className="text-sm text-cyan-300">Use um editor de vídeo (CapCut, Clipchamp, etc.) para combinar o áudio da narração com o clipe de vídeo.</p>
-                   </div>
+                  <div className="text-center">
+                    <p className="text-red-400 text-sm">{mediaError}</p>
+                    {/* Fallback UI */}
+                    {audioUrl && videoUrl && (
+                        <div className="mt-4 pt-4 border-t border-slate-700">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                                <div>
+                                    <h4 className="font-semibold mb-2">Narração de Áudio</h4>
+                                    <audio controls src={audioUrl} className="w-full"></audio>
+                                    <button onClick={() => audioBlob && downloadBlob(audioBlob, `narracao-${getCleanThemeForFilename()}.wav`)} className="mt-2 w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700"><AudioIcon /> Baixar Áudio (WAV)</button>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-2">Clipe de Vídeo (sem som)</h4>
+                                    <video controls src={videoUrl} className="w-full rounded-md bg-black"></video>
+                                    <button onClick={() => videoBlob && downloadBlob(videoBlob, `video-${getCleanThemeForFilename()}.mp4`)} className="mt-2 w-full flex justify-center items-center gap-2 py-2 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700"><VideoIcon /> Baixar Vídeo (MP4)</button>
+                                </div>
+                             </div>
+                        </div>
+                    )}
+                 </div>
+              ) : finalVideoUrl ? (
+                <div className="text-center">
+                    <p className="font-semibold text-lg text-green-400 mb-4">{mediaGenerationStep}</p>
+                    <video controls src={finalVideoUrl} className="w-full rounded-md bg-black mb-4"></video>
+                    <button 
+                        onClick={() => finalVideoBlob && downloadBlob(finalVideoBlob, `video_completo-${getCleanThemeForFilename()}.webm`)} 
+                        className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                    >
+                        <DownloadIcon />
+                        <span>Salvar Vídeo Completo (.webm)</span>
+                    </button>
                 </div>
               ) : (
-                <button onClick={handleGenerateMedia} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-sky-500 hover:from-cyan-700 hover:to-sky-600">
-                  <SparklesIcon />
-                  <span>Gerar Mídia para Vídeo (Áudio + Clipe)</span>
+                <button onClick={handleCreateFullVideo} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-sky-500 hover:from-cyan-700 hover:to-sky-600">
+                  <VideoIcon />
+                  <span>Criar e Salvar Vídeo Completo</span>
                 </button>
               )}
             </div>

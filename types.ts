@@ -6,6 +6,7 @@ export interface PostData {
   hashtags: string;
   platform: string;
   profileUrl: string;
+  creativityMode?: boolean;
 }
 
 export interface GeneratedContent {

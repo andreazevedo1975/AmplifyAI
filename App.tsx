@@ -36,7 +36,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean) => {
+  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean) => {
     setIsLoading(true);
     setIsThinking(thinkingMode);
     setError(null);
@@ -52,7 +52,7 @@ const App: React.FC = () => {
         imageUrl = await generateImage(imagePrompt, platform);
       }
       
-      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode);
+      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode);
 
       const newPost: PostData = {
         id: Date.now().toString(),
@@ -62,6 +62,7 @@ const App: React.FC = () => {
         hashtags: content.hashtags,
         platform,
         profileUrl,
+        creativityMode,
       };
 
       await addPost(newPost);
@@ -82,6 +83,10 @@ const App: React.FC = () => {
               errorObject.title = "Resposta Inesperada da IA";
               errorObject.message = "A inteligência artificial retornou dados em um formato ou com conteúdo incompleto que o aplicativo não conseguiu entender.";
               errorObject.suggestion = "Isso pode acontecer com temas muito complexos ou ambíguos. Tente refinar ou simplificar o tema do seu post.";
+          } else if (msg.includes("[RESOURCE_EXHAUSTED_ERROR]")) {
+              errorObject.title = "Serviço Temporariamente Indisponível";
+              errorObject.message = "A IA está com alta demanda no momento e não conseguiu processar sua solicitação.";
+              errorObject.suggestion = "Isso é temporário. Por favor, aguarde um momento e tente gerar o post novamente.";
           } else if (msg.includes("[IMAGE_GEN_ERROR]")) {
               errorObject.title = "Falha na Geração de Imagem";
               errorObject.message = "Não foi possível criar a imagem solicitada com base no seu prompt ou URL.";
@@ -94,6 +99,10 @@ const App: React.FC = () => {
               errorObject.title = "Conteúdo Bloqueado por Segurança";
               errorObject.message = "Sua solicitação não pôde ser concluída pois o conteúdo foi considerado inadequado pelas políticas de segurança da IA.";
               errorObject.suggestion = "Por favor, reformule seu tema e/ou prompt de imagem para estar de acordo com as diretrizes de uso e evite tópicos sensíveis.";
+          } else if (msg.includes('[VEO_KEY_ERROR]')) {
+              errorObject.title = "Chave de API Inválida para Vídeo";
+              errorObject.message = "A chave de API selecionada não tem permissão para usar o serviço de geração de vídeo ou não foi encontrada.";
+              errorObject.suggestion = "Por favor, clique no botão para selecionar a chave de API novamente e escolha uma que seja válida para o serviço de vídeo.";
           } else if (msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('authentication')) {
               errorObject.title = "Erro de Configuração";
               errorObject.message = "Não foi possível conectar ao serviço de IA devido a um problema de autenticação.";
@@ -124,7 +133,7 @@ const App: React.FC = () => {
   };
 
   const handleRegenerateHistoryItem = (post: PostData) => {
-    handleGeneratePost(post.theme, '', post.platform, post.profileUrl, false);
+    handleGeneratePost(post.theme, '', post.platform, post.profileUrl, false, post.creativityMode || false);
   };
 
   const handleClearHistory = () => {

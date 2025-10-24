@@ -8,7 +8,7 @@ import html2canvas from 'html2canvas';
 import { PdfIcon } from './icons/PdfIcon';
 import { DocxIcon } from './icons/DocxIcon';
 import { ImageIcon } from './icons/ImageIcon';
-import { suggestHashtags, generateVideoScript, generateAudioFromScript, generateVideoFromPrompt } from '../services/geminiService';
+import { suggestHashtags, generateVideoScript, generateAudioFromScript, generateVideoFromPrompt, generatePostVariation } from '../services/geminiService';
 import { SparklesIcon } from './icons/SparklesIcon';
 import JSZip from 'jszip';
 import { GoogleDriveIcon } from './icons/GoogleDriveIcon';
@@ -17,6 +17,7 @@ import { VideoIcon } from './icons/VideoIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
+import { RegenerateIcon } from './icons/RegenerateIcon';
 
 // Helper function to decode base64
 function decode(base64: string): Uint8Array {
@@ -152,6 +153,10 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [isPublishingVideo, setIsPublishingVideo] = useState(false);
   
   const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(false);
+  const [variationData, setVariationData] = useState<{ caption: string; hashtags: string } | null>(null);
+  const [isGeneratingVariation, setIsGeneratingVariation] = useState<boolean>(false);
+  const [variationError, setVariationError] = useState<string | null>(null);
+
   const isExternalUrl = data.imageUrl.startsWith('http');
 
   useEffect(() => {
@@ -571,6 +576,27 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     }
   };
 
+  const handleGenerateVariation = async () => {
+      setIsGeneratingVariation(true);
+      setVariationError(null);
+      setVariationData(null); // Clear previous variation
+      try {
+          const variation = await generatePostVariation(
+              data.theme,
+              data.platform,
+              data.tone || 'Envolvente',
+              data.caption
+          );
+          setVariationData(variation);
+      } catch (error) {
+          console.error("Error generating variation:", error);
+          const errorMessage = error instanceof Error ? error.message : "Falha ao gerar variação. Tente novamente.";
+          setVariationError(errorMessage);
+      } finally {
+          setIsGeneratingVariation(false);
+      }
+  };
+
   const handleGenerateScript = async () => {
     setIsGeneratingScript(true);
     setScriptError(null);
@@ -893,6 +919,94 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
               </div>
           )}
           
+          {/* Creative Options Section */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-300 mb-2">Opções Criativas</h3>
+            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px]">
+                {!variationData && !isGeneratingVariation && !variationError && (
+                    <button
+                        onClick={handleGenerateVariation}
+                        className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
+                    >
+                        <SparklesIcon />
+                        <span>Gerar Variação do Post</span>
+                    </button>
+                )}
+
+                {isGeneratingVariation && (
+                    <div className="flex items-center justify-center text-slate-400">
+                        <SmallSpinner />
+                        <span className="ml-2 text-sm">Criando uma nova versão...</span>
+                    </div>
+                )}
+
+                {variationError && (
+                  <div className="text-center">
+                      <p className="text-red-400 text-sm mb-2">{variationError}</p>
+                      <button
+                          onClick={handleGenerateVariation}
+                          className="text-sm font-semibold text-slate-300 hover:text-white underline"
+                      >
+                          Tentar Novamente
+                      </button>
+                  </div>
+                )}
+
+                {variationData && (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                          <h4 className="font-bold text-fuchsia-300">Variação (Opção 2)</h4>
+                          <button
+                              onClick={handleGenerateVariation}
+                              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"
+                              aria-label="Gerar outra variação"
+                              title="Gerar outra variação"
+                          >
+                              <RegenerateIcon /> 
+                          </button>
+                      </div>
+                        
+                      <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <h5 className="text-sm font-semibold text-slate-400">Nova Legenda</h5>
+                            <button
+                              onClick={() => handleCopy(variationData.caption, 'var_caption')}
+                              className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700"
+                              aria-label="Copiar nova legenda"
+                            >
+                              <CopyIcon />
+                              <span>{copied === 'var_caption' ? 'Copiado!' : 'Copiar'}</span>
+                            </button>
+                          </div>
+                          <div className="bg-slate-800/50 p-3 rounded-md border border-slate-600/50 max-h-32 overflow-y-auto custom-scrollbar">
+                            <p className="text-slate-300 whitespace-pre-wrap text-sm">{variationData.caption}</p>
+                          </div>
+                      </div>
+
+                      {variationData.hashtags && (
+                          <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <h5 className="text-sm font-semibold text-slate-400">Novas Hashtags</h5>
+                                <button
+                                  onClick={() => handleCopy(variationData.hashtags, 'var_hashtags')}
+                                  className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700"
+                                  aria-label="Copiar novas hashtags"
+                                >
+                                  <CopyIcon />
+                                  <span>{copied === 'var_hashtags' ? 'Copiado!' : 'Copiar'}</span>
+                                </button>
+                              </div>
+                              <div className="bg-slate-800/50 p-3 rounded-md border border-slate-600/50">
+                                <p className="text-cyan-400 break-words text-sm">{variationData.hashtags}</p>
+                              </div>
+                          </div>
+                      )}
+                    </div>
+                )}
+            </div>
+          </div>
+
+
           {/* Hashtag Suggestions Section */}
           {canSuggestHashtags && showHashtags && (
             <div>

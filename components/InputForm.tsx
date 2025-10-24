@@ -1,14 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
-import { generateImage, generateInspirationalIdea } from '../services/geminiService';
+import { generateInspirationalIdea } from '../services/geminiService';
 import { Spinner } from './Spinner';
 import { CloseIcon } from './icons/CloseIcon';
 import { Modal } from './Modal';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { ManageAccountsIcon } from './icons/ManageAccountsIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import type { ToneProfile } from '../types';
 
 
 interface InputFormProps {
@@ -87,7 +87,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [tone, setTone] = useState('Envolvente');
+  const [selectedTone, setSelectedTone] = useState('Envolvente');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const [scriptTitle, setScriptTitle] = useState('');
@@ -107,6 +107,15 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [newProfileUrl, setNewProfileUrl] = useState('');
   const [profileError, setProfileError] = useState<string | null>(null);
   
+  // State for Tone Profiles
+  const [isToneModalOpen, setIsToneModalOpen] = useState(false);
+  const [savedToneProfiles, setSavedToneProfiles] = useState<ToneProfile[]>([]);
+  const [editingToneProfile, setEditingToneProfile] = useState<ToneProfile | null>(null);
+  const [toneFormName, setToneFormName] = useState('');
+  const [toneFormDescription, setToneFormDescription] = useState('');
+  const [toneFormExamples, setToneFormExamples] = useState('');
+  const [toneFormError, setToneFormError] = useState<string | null>(null);
+  
   // Load profiles from localStorage on mount
   useEffect(() => {
     try {
@@ -114,8 +123,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       if (storedProfiles) {
         setSavedProfiles(JSON.parse(storedProfiles));
       }
+      const storedTones = localStorage.getItem('amplifyai_tone_profiles');
+      if (storedTones) {
+        setSavedToneProfiles(JSON.parse(storedTones));
+      }
     } catch (error) {
-      console.error("Failed to load profiles from localStorage", error);
+      console.error("Failed to load data from localStorage", error);
     }
   }, []);
 
@@ -127,6 +140,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       console.error("Failed to save profiles to localStorage", error);
     }
   }, [savedProfiles]);
+  
+  useEffect(() => {
+    try {
+      localStorage.setItem('amplifyai_tone_profiles', JSON.stringify(savedToneProfiles));
+    } catch (error) {
+      console.error("Failed to save tone profiles to localStorage", error);
+    }
+  }, [savedToneProfiles]);
 
   const handleAddProfile = () => {
     setProfileError(null);
@@ -151,6 +172,52 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       setSelectedProfileUrl('');
     }
   };
+
+  const handleEditToneProfile = (profile: ToneProfile) => {
+    setEditingToneProfile(profile);
+    setToneFormName(profile.name);
+    setToneFormDescription(profile.description);
+    setToneFormExamples(profile.examples);
+    setToneFormError(null);
+  };
+  
+  const handleSaveToneProfile = () => {
+    setToneFormError(null);
+    if (!toneFormName.trim() || !toneFormDescription.trim()) {
+      setToneFormError("Nome e Descrição do tom são obrigatórios.");
+      return;
+    }
+
+    if (editingToneProfile) {
+      setSavedToneProfiles(savedToneProfiles.map(p => 
+        p.id === editingToneProfile.id 
+        ? { ...p, name: toneFormName, description: toneFormDescription, examples: toneFormExamples } 
+        : p
+      ));
+    } else {
+      const newProfile: ToneProfile = {
+        id: crypto.randomUUID(),
+        name: toneFormName,
+        description: toneFormDescription,
+        examples: toneFormExamples,
+      };
+      setSavedToneProfiles([...savedToneProfiles, newProfile]);
+    }
+    
+    // Reset form
+    setEditingToneProfile(null);
+    setToneFormName('');
+    setToneFormDescription('');
+    setToneFormExamples('');
+  };
+  
+  const handleDeleteToneProfile = (idToDelete: string) => {
+      setSavedToneProfiles(savedToneProfiles.filter(p => p.id !== idToDelete));
+      if (selectedTone === idToDelete) {
+        setSelectedTone('Envolvente'); // Reset to default if deleted
+      }
+  };
+
 
   const isUrl = (text: string): boolean => {
     try {
@@ -187,10 +254,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     if (imageOption === 'url') {
       imageInput = imageUrl;
     } else if (imageOption === 'prompt') {
-      // Use the provided prompt, or if it's empty, use the theme as the prompt.
       imageInput = imagePrompt.trim() || theme.trim();
     }
-    // If imageOption is 'none', imageInput remains empty.
+
+    let tonePayload = selectedTone;
+    const customToneProfile = savedToneProfiles.find(p => p.id === selectedTone);
+    if (customToneProfile) {
+      tonePayload = `[INSTRUÇÃO DE TOM PERSONALIZADO]\n- **Nome do Tom:** ${customToneProfile.name}\n- **Descrição:** ${customToneProfile.description}${customToneProfile.examples ? `\n- **Exemplos de Frases:**\n${customToneProfile.examples.split('\n').map(ex => `  - ${ex}`).join('\n')}` : ''}`;
+    }
 
     onGenerate({
       mode,
@@ -201,7 +272,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       thinkingMode,
       creativityMode,
       focusMode,
-      tone,
+      tone: tonePayload,
       scriptTitle,
       scriptDescription,
       audioText,
@@ -221,7 +292,6 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     }
     if (theme.trim() === '') return false;
     if (imageOption === 'url' && (!imageUrl.trim() || !isUrl(imageUrl))) return false;
-    // For prompt, an empty prompt is allowed, as it will default to the theme.
     return true;
   };
   
@@ -517,17 +587,29 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 </div>
 
                 <div>
-                  <label htmlFor="tone" className="block text-sm font-medium text-slate-300 mb-2">
-                      Tom de Voz Principal
-                  </label>
-                  <select
-                      id="tone"
-                      value={tone}
-                      onChange={(e) => setTone(e.target.value)}
-                      className="w-full bg-slate-800 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
-                  >
-                      {toneOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                    <label htmlFor="tone" className="block text-sm font-medium text-slate-300 mb-2">
+                        Tom de Voz Principal
+                    </label>
+                    <div className="flex items-center gap-2">
+                        <select
+                            id="tone"
+                            value={selectedTone}
+                            onChange={(e) => setSelectedTone(e.target.value)}
+                            className="flex-grow w-full bg-slate-800 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                        >
+                            <optgroup label="Padrão">
+                                {toneOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                            </optgroup>
+                            {savedToneProfiles.length > 0 && (
+                                <optgroup label="Personalizados">
+                                    {savedToneProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </optgroup>
+                            )}
+                        </select>
+                         <button type="button" onClick={() => setIsToneModalOpen(true)} className="p-3 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors" aria-label="Gerenciar Tons de Voz" title="Gerenciar Tons de Voz">
+                            <ManageAccountsIcon />
+                        </button>
+                    </div>
                 </div>
                 
                 <div>
@@ -600,7 +682,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         </button>
       </div>
 
-       <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Gerenciar Perfis de Tom de Voz">
+       <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Gerenciar Perfis de Análise">
         <div className="space-y-6">
             <div>
                 <h3 className="text-md font-semibold text-slate-300 mb-3">Perfis Salvos</h3>
@@ -651,6 +733,83 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                     >
                         Salvar Perfil
                     </button>
+                </div>
+            </div>
+        </div>
+    </Modal>
+    
+     <Modal isOpen={isToneModalOpen} onClose={() => setIsToneModalOpen(false)} title="Gerenciar Perfis de Tom de Voz">
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-md font-semibold text-slate-300 mb-3">Tons de Voz Salvos</h3>
+                {savedToneProfiles.length > 0 ? (
+                     <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                        {savedToneProfiles.map(profile => (
+                            <li key={profile.id} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-md">
+                                <div>
+                                    <p className="font-semibold text-slate-200">{profile.name}</p>
+                                    <p className="text-xs text-slate-400 truncate max-w-xs">{profile.description}</p>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button onClick={() => handleEditToneProfile(profile)} className="text-xs font-semibold text-cyan-400 hover:text-cyan-300">EDITAR</button>
+                                    <button
+                                        onClick={() => handleDeleteToneProfile(profile.id)}
+                                        className="p-2 rounded-full text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
+                                        aria-label={`Excluir tom ${profile.name}`}
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-slate-400 text-center py-4 bg-slate-900/50 rounded-md">Nenhum perfil de tom de voz salvo.</p>
+                )}
+            </div>
+
+            <div className="pt-6 border-t border-slate-700">
+                <h3 className="text-md font-semibold text-slate-300 mb-3">{editingToneProfile ? `Editando "${editingToneProfile.name}"` : 'Adicionar Novo Tom de Voz'}</h3>
+                <div className="space-y-4">
+                    <input
+                        type="text"
+                        value={toneFormName}
+                        onChange={(e) => setToneFormName(e.target.value)}
+                        placeholder="Nome do Tom (Ex: Cético Engraçado)"
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                    <textarea
+                        value={toneFormDescription}
+                        onChange={(e) => setToneFormDescription(e.target.value)}
+                        placeholder="Descrição (Ex: Um tom que mistura humor sarcástico com uma visão cética sobre tendências.)"
+                        rows={3}
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                     <textarea
+                        value={toneFormExamples}
+                        onChange={(e) => setToneFormExamples(e.target.value)}
+                        placeholder={"Exemplos de Frases (uma por linha):\n- 'Sério que essa é a nova moda?'\n- 'Minhas meias velhas têm mais personalidade.'"}
+                        rows={4}
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                    {toneFormError && <p className="text-sm text-red-400">{toneFormError}</p>}
+                    <div className="flex gap-4">
+                        {editingToneProfile && (
+                            <button
+                                type="button"
+                                onClick={() => {setEditingToneProfile(null); setToneFormName(''); setToneFormDescription(''); setToneFormExamples('');}}
+                                className="w-full flex justify-center py-2 px-4 border border-slate-600 rounded-xl shadow-sm text-sm font-medium text-slate-300 bg-slate-700 hover:bg-slate-600 focus:outline-none"
+                            >
+                                Cancelar Edição
+                            </button>
+                        )}
+                        <button
+                            onClick={handleSaveToneProfile}
+                            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-fuchsia-500"
+                        >
+                            {editingToneProfile ? 'Salvar Alterações' : 'Salvar Novo Tom'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

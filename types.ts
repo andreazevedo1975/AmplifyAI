@@ -43,3 +43,10 @@ export interface DriveStatus {
   type: 'info' | 'success' | 'error';
   message: string;
 }
+
+export interface ToneProfile {
+  id: string;
+  name: string;
+  description: string;
+  examples: string;
+}

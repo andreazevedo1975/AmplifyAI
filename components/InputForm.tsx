@@ -39,7 +39,29 @@ const platformDetails = [
 ];
 
 const tones = ['Envolvente', 'Profissional', 'Engraçado', 'Inspirador', 'Informativo', 'Casual'];
-const videoStyles = ['Cinemático', 'Time-lapse', 'Animação', 'Preto e Branco', 'Filmagem de Drone', 'Retrô', 'Documentário', 'Abstrato', 'Infográfico Animado', 'Render 3D', 'Vaporwave', 'Fantasia Épica', 'Stop Motion', 'Minimalista', 'Arte de Papel', 'Estilo Vlog'];
+const videoStyles = [
+    'Abstrato', 
+    'Animação', 
+    'Aquarela Animada',
+    'Arte de Papel', 
+    'Cinemático', 
+    'Cyberpunk',
+    'Documentário',
+    'Estilo Vlog',
+    'Fantasia Épica', 
+    'Filmagem de Drone', 
+    'Grão de Filme Vintage',
+    'Infográfico Animado', 
+    'Minimalista', 
+    'Neon Noir',
+    'Preto e Branco', 
+    'Render 3D', 
+    'Retrô', 
+    'Slow Motion Dramático',
+    'Stop Motion', 
+    'Time-lapse', 
+    'Vaporwave', 
+];
 
 
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
@@ -52,7 +74,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [creativityMode, setCreativityMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [tone, setTone] = useState('Envolvente');
-  const [videoStyle, setVideoStyle] = useState('Cinemático');
+  const [videoStyle, setVideoStyle] = useState(videoStyles[0]);
   const [videoLength, setVideoLength] = useState('');
   const [scriptTitle, setScriptTitle] = useState('');
   const [scriptDescription, setScriptDescription] = useState('');

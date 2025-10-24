@@ -109,6 +109,15 @@ const App: React.FC = () => {
   }
 
   const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string, focusMode: boolean) => {
+    if (platform === 'YouTube' || platform === 'TikTok') {
+        setError({
+            title: "Plataforma Orientada a Vídeo",
+            message: `A plataforma selecionada (${platform}) é focada em conteúdo de vídeo. A geração de posts estáticos (imagem e texto) não é o ideal.`,
+            suggestion: "Para criar conteúdo otimizado, por favor, utilize as funcionalidades 'Gerar Vídeo' ou 'Gerar Roteiro'."
+        });
+        return; // Stop execution for these platforms
+    }
+    
     setIsThinking(thinkingMode);
     setLoadingMessage(thinkingMode
         ? "A IA está em modo de análise profunda... isso pode levar mais tempo."
@@ -157,6 +166,8 @@ const App: React.FC = () => {
         // @ts-ignore
         const hasKey = await window.aistudio.hasSelectedApiKey();
         if (!hasKey) {
+            setLoadingMessage("A geração de vídeo requer uma chave de API. A janela de seleção será aberta em instantes...");
+            await new Promise(resolve => setTimeout(resolve, 2500));
             // @ts-ignore
             await window.aistudio.openSelectKey();
         }

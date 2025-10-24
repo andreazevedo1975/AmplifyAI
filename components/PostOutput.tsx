@@ -8,7 +8,7 @@ import html2canvas from 'html2canvas';
 import { PdfIcon } from './icons/PdfIcon';
 import { DocxIcon } from './icons/DocxIcon';
 import { ImageIcon } from './icons/ImageIcon';
-import { suggestHashtags, generateVideoScript, generateAudioFromScript, generateVideoFromPrompt, generatePostVariation } from '../services/geminiService';
+import { suggestHashtags, generateVideoScript, generateAudioFromScript, generateVideoFromPrompt, generateMultiplePostVariations } from '../services/geminiService';
 import { SparklesIcon } from './icons/SparklesIcon';
 import JSZip from 'jszip';
 import { GoogleDriveIcon } from './icons/GoogleDriveIcon';
@@ -18,6 +18,7 @@ import { WarningIcon } from './icons/WarningIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
 import { RegenerateIcon } from './icons/RegenerateIcon';
+import { UseIcon } from './icons/UseIcon';
 
 // Helper function to decode base64
 function decode(base64: string): Uint8Array {
@@ -153,24 +154,33 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [isPublishingVideo, setIsPublishingVideo] = useState(false);
   
   const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(false);
-  const [variationData, setVariationData] = useState<{ caption: string; hashtags: string } | null>(null);
-  const [isGeneratingVariation, setIsGeneratingVariation] = useState<boolean>(false);
-  const [variationError, setVariationError] = useState<string | null>(null);
+  
+  const [currentPost, setCurrentPost] = useState<PostData>(data);
+  const [variations, setVariations] = useState<{ caption: string; hashtags: string }[] | null>(null);
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState<boolean>(false);
+  const [variationsError, setVariationsError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    // When the component receives a new post (e.g., from history), update the local state
+    setCurrentPost(data);
+    // Also reset variations if the post changes
+    setVariations(null);
+    setVariationsError(null);
+  }, [data]);
 
-  const isExternalUrl = data.imageUrl.startsWith('http');
 
   useEffect(() => {
     // Check for VEO key when the component mounts or data changes to a YouTube post
-    if (data.platform === 'YouTube') {
+    if (currentPost.platform === 'YouTube') {
       // @ts-ignore
       if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
         // @ts-ignore
         window.aistudio.hasSelectedApiKey().then(setIsVeoKeySelected);
       }
     }
-  }, [data.platform]);
+  }, [currentPost.platform]);
 
-  const getCleanThemeForFilename = () => data.theme.substring(0, 30).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const getCleanThemeForFilename = () => currentPost.theme.substring(0, 30).replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
   const handleCopy = (textToCopy: string, type: string) => {
     navigator.clipboard.writeText(textToCopy);
@@ -183,11 +193,11 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     setIsSaving(true);
     setSaveButtonText('Salvando...');
 
-    const fullText = `${data.caption}\n\n${data.hashtags}`;
+    const fullText = `${currentPost.caption}\n\n${currentPost.hashtags}`;
 
     try {
       // 1. Download Image
-      const response = await fetch(data.imageUrl);
+      const response = await fetch(currentPost.imageUrl);
        if (!response.ok) {
         throw new Error(`Falha ao buscar imagem: ${response.statusText}`);
       }
@@ -239,10 +249,10 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
         // --- Theme ---
         doc.setFontSize(14);
-        doc.text(`Tema: ${data.theme}`, margin, 35);
+        doc.text(`Tema: ${currentPost.theme}`, margin, 35);
         
         // --- Image ---
-        const response = await fetch(data.imageUrl);
+        const response = await fetch(currentPost.imageUrl);
         const blob = await response.blob();
         const imgData = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -272,12 +282,12 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
-        const captionLines = doc.splitTextToSize(data.caption, max_width);
+        const captionLines = doc.splitTextToSize(currentPost.caption, max_width);
         doc.text(captionLines, margin, currentY);
         currentY += (captionLines.length * 5) + 10;
         
         // --- Hashtags ---
-        if (data.hashtags) {
+        if (currentPost.hashtags) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
             doc.text("Hashtags:", margin, currentY);
@@ -285,7 +295,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 102, 204); // Blue color for hashtags
-            const hashtagLines = doc.splitTextToSize(data.hashtags, max_width);
+            const hashtagLines = doc.splitTextToSize(currentPost.hashtags, max_width);
             doc.text(hashtagLines, margin, currentY);
         }
 
@@ -302,7 +312,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const handleDownloadDocx = async () => {
     setIsDownloadingDocx(true);
     try {
-      const response = await fetch(data.imageUrl);
+      const response = await fetch(currentPost.imageUrl);
       const imageBuffer = await response.arrayBuffer();
       
       const getImageDimensions = (buffer: ArrayBuffer): Promise<{width: number; height: number}> => {
@@ -329,7 +339,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           }),
           new Paragraph({ text: "" }), // spacing
           new Paragraph({
-            children: [new TextRun({ text: "Tema: ", bold: true, size: 28 }), new TextRun({ text: data.theme, size: 28 })],
+            children: [new TextRun({ text: "Tema: ", bold: true, size: 28 }), new TextRun({ text: currentPost.theme, size: 28 })],
           }),
            new Paragraph({ text: "" }),
           new Paragraph({
@@ -340,13 +350,13 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           }),
           new Paragraph({ text: "" }),
           new Paragraph({ children: [new TextRun({ text: "Legenda", bold: true, size: 24 })] }),
-          ...data.caption.split('\n').map(line => new Paragraph({ text: line })),
+          ...currentPost.caption.split('\n').map(line => new Paragraph({ text: line })),
       ];
 
-      if (data.hashtags) {
+      if (currentPost.hashtags) {
           children.push(new Paragraph({ text: "" }));
           children.push(new Paragraph({ children: [new TextRun({ text: "Hashtags", bold: true, size: 24 })] }));
-          children.push(new Paragraph({ children: [new TextRun({ text: data.hashtags, color: "0066CC" })] }));
+          children.push(new Paragraph({ children: [new TextRun({ text: currentPost.hashtags, color: "0066CC" })] }));
       }
 
       const doc = new Document({
@@ -386,14 +396,14 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
     const image = new Image();
     image.crossOrigin = 'anonymous';
-    image.src = data.imageUrl;
+    image.src = currentPost.imageUrl;
     image.style.width = '100%';
     image.style.height = 'auto';
     image.style.borderRadius = '8px';
     image.style.marginBottom = '20px';
     
     const caption = document.createElement('p');
-    caption.innerText = data.caption;
+    caption.innerText = currentPost.caption;
     caption.style.fontSize = '24px';
     caption.style.lineHeight = '1.5';
     caption.style.whiteSpace = 'pre-wrap';
@@ -402,9 +412,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     container.appendChild(image);
     container.appendChild(caption);
     
-    if (data.hashtags) {
+    if (currentPost.hashtags) {
         const hashtags = document.createElement('p');
-        hashtags.innerText = data.hashtags;
+        hashtags.innerText = currentPost.hashtags;
         hashtags.style.fontSize = '20px';
         hashtags.style.color = '#67e8f9'; // cyan-300
         hashtags.style.wordBreak = 'break-word';
@@ -460,13 +470,13 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       const zip = new JSZip();
       
       // 1. Fetch and add image
-      const imageResponse = await fetch(data.imageUrl);
+      const imageResponse = await fetch(currentPost.imageUrl);
       const imageBlob = await imageResponse.blob();
       const imageExtension = imageBlob.type.split('/')[1] || 'jpg';
       zip.file(`imagem.${imageExtension}`, imageBlob);
       
       // 2. Add text content
-      const textContent = `TEMA:\n${data.theme}\n\nLEGENDA:\n${data.caption}\n\nHASHTAGS:\n${data.hashtags}`;
+      const textContent = `TEMA:\n${currentPost.theme}\n\nLEGENDA:\n${currentPost.caption}\n\nHASHTAGS:\n${currentPost.hashtags}`;
       zip.file("legenda_e_hashtags.txt", textContent);
       
       // 3. Generate and add composite image (if handleSaveAsImage is adapted)
@@ -500,12 +510,12 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     if (isSharing) return;
     setIsSharing(true);
   
-    const textToShare = `${data.caption}\n\n${data.hashtags}`;
+    const textToShare = `${currentPost.caption}\n\n${currentPost.hashtags}`;
   
     // Inner async function to handle the core logic and return a status
     const attemptShare = async (): Promise<'SHARED' | 'CANCELLED' | 'FALLBACK'> => {
       try {
-        const response = await fetch(data.imageUrl);
+        const response = await fetch(currentPost.imageUrl);
         if (!response.ok) throw new Error('Image fetch failed');
         const blob = await response.blob();
         const file = new File([blob], `amplifyai-image.${blob.type.split('/')[1] || 'jpg'}`, { type: blob.type });
@@ -513,7 +523,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: data.theme,
+            title: currentPost.theme,
             text: textToShare,
           });
           return 'SHARED'; // Share was successful
@@ -533,7 +543,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       if (status === 'FALLBACK') {
         // Inform user and copy text before redirecting
         navigator.clipboard.writeText(textToShare);
-        alert(`Seu navegador não suporta compartilhamento direto ou ocorreu um erro.\n\nO texto do post foi copiado para sua área de transferência para facilitar!\n\nRedirecionando para ${data.platform}...`);
+        alert(`Seu navegador não suporta compartilhamento direto ou ocorreu um erro.\n\nO texto do post foi copiado para sua área de transferência para facilitar!\n\nRedirecionando para ${currentPost.platform}...`);
   
         const platformUrls: { [key: string]: string } = {
           'Instagram': 'https://www.instagram.com/',
@@ -549,8 +559,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           'WhatsApp': 'https://web.whatsapp.com/',
           'Telegram': 'https://t.me/',
         };
-        let url = data.profileUrl || platformUrls[data.platform] || '#';
-        if (data.platform === 'Twitter (X)') {
+        let url = currentPost.profileUrl || platformUrls[currentPost.platform] || '#';
+        if (currentPost.platform === 'Twitter (X)') {
           url = `${platformUrls['Twitter (X)']}?text=${encodeURIComponent(textToShare)}`;
         }
         window.open(url, '_blank', 'noopener,noreferrer');
@@ -566,7 +576,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     setSuggestionError(null);
     setSuggestedHashtags([]);
     try {
-      const suggestions = await suggestHashtags(data.hashtags, data.platform);
+      const suggestions = await suggestHashtags(currentPost.hashtags, currentPost.platform);
       setSuggestedHashtags(suggestions);
     } catch (error) {
       console.error("Error suggesting hashtags:", error);
@@ -576,26 +586,41 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     }
   };
 
-  const handleGenerateVariation = async () => {
-      setIsGeneratingVariation(true);
-      setVariationError(null);
-      setVariationData(null); // Clear previous variation
+  const handleGenerateVariations = async () => {
+      setIsGeneratingVariations(true);
+      setVariationsError(null);
+      setVariations(null);
       try {
-          const variation = await generatePostVariation(
-              data.theme,
-              data.platform,
-              data.tone || 'Envolvente',
-              data.caption
+          const generatedVariations = await generateMultiplePostVariations(
+              currentPost.theme,
+              currentPost.platform,
+              currentPost.tone || 'Envolvente',
+              currentPost.caption
           );
-          setVariationData(variation);
+          setVariations(generatedVariations);
       } catch (error) {
-          console.error("Error generating variation:", error);
-          const errorMessage = error instanceof Error ? error.message : "Falha ao gerar variação. Tente novamente.";
-          setVariationError(errorMessage);
+          console.error("Error generating variations:", error);
+          const errorMessage = error instanceof Error ? error.message : "Falha ao gerar variações. Tente novamente.";
+          setVariationsError(errorMessage);
       } finally {
-          setIsGeneratingVariation(false);
+          setIsGeneratingVariations(false);
       }
   };
+  
+  const handleApplyVariation = (variation: { caption: string; hashtags: string }) => {
+    setCurrentPost(prev => ({
+      ...prev!,
+      caption: variation.caption,
+      hashtags: variation.hashtags,
+    }));
+    setVariations(null);
+    setVariationsError(null);
+    const postOutputElement = document.getElementById('post-output-container');
+    if (postOutputElement) {
+        postOutputElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
 
   const handleGenerateScript = async () => {
     setIsGeneratingScript(true);
@@ -603,12 +628,12 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     setVideoScript(null);
     
     try {
-      const caption = data.caption;
+      const caption = currentPost.caption;
       const titleMatch = caption.match(/\*\*TÍTULO:\*\*\s*\n([\s\S]*?)\n\n\*\*DESCRIÇÃO:\*\*/);
       const descriptionMatch = caption.match(/\*\*DESCRIÇÃO:\*\*\s*\n([\s\S]*)/);
       
-      const title = titleMatch ? titleMatch[1].trim() : data.theme;
-      const description = descriptionMatch ? descriptionMatch[1].trim() : data.caption;
+      const title = titleMatch ? titleMatch[1].trim() : currentPost.theme;
+      const description = descriptionMatch ? descriptionMatch[1].trim() : currentPost.caption;
   
       if (!title || !description) {
           throw new Error("Não foi possível extrair o título e a descrição do post.");
@@ -652,8 +677,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         
         // Step 2: Generate Video
         setMediaGenerationStep('Gerando clipe de vídeo (pode levar alguns minutos)...');
-        const imageBase64 = await imageUrlToBase64(data.imageUrl);
-        const videoBlobResult = await generateVideoFromPrompt(data.theme, imageBase64);
+        const imageBase64 = await imageUrlToBase64(currentPost.imageUrl);
+        const videoBlobResult = await generateVideoFromPrompt(currentPost.theme, imageBase64);
         
         // Step 3: Merge (with browser compatibility check)
         const videoCheckEl = document.createElement('video');
@@ -769,9 +794,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     if (!finalVideoBlob || isPublishingVideo) return;
     setIsPublishingVideo(true);
 
-    const titleMatch = data.caption.match(/\*\*TÍTULO:\*\*\s*\n([\s\S]*?)\n\n\*\*DESCRIÇÃO:\*\*/);
-    const title = titleMatch ? titleMatch[1].trim() : data.theme;
-    const textToShare = `Confira meu novo vídeo para o ${data.platform}: ${title}`;
+    const titleMatch = currentPost.caption.match(/\*\*TÍTULO:\*\*\s*\n([\s\S]*?)\n\n\*\*DESCRIÇÃO:\*\*/);
+    const title = titleMatch ? titleMatch[1].trim() : currentPost.theme;
+    const textToShare = `Confira meu novo vídeo para o ${currentPost.platform}: ${title}`;
     const file = new File([finalVideoBlob], `video_completo-${getCleanThemeForFilename()}.webm`, { type: 'video/webm' });
 
     const attemptShare = async (): Promise<'SHARED' | 'CANCELLED' | 'FALLBACK'> => {
@@ -795,10 +820,10 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     attemptShare().then(status => {
         if (status === 'FALLBACK') {
             navigator.clipboard.writeText(textToShare);
-            alert(`Seu navegador não suporta compartilhamento direto de vídeo.\n\nO título do vídeo foi copiado. Redirecionando para ${data.platform} para que você possa fazer o upload manual.`);
+            alert(`Seu navegador não suporta compartilhamento direto de vídeo.\n\nO título do vídeo foi copiado. Redirecionando para ${currentPost.platform} para que você possa fazer o upload manual.`);
             
             const platformUrls: { [key: string]: string } = { 'YouTube': 'https://studio.youtube.com/' };
-            const url = platformUrls[data.platform] || 'https://youtube.com';
+            const url = platformUrls[currentPost.platform] || 'https://youtube.com';
             window.open(url, '_blank', 'noopener,noreferrer');
         }
         setIsPublishingVideo(false);
@@ -835,18 +860,19 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
   
-  const showHashtags = data.hashtags && data.hashtags.trim() !== '';
-  const canSuggestHashtags = !['Reddit', 'Quora', 'WhatsApp'].includes(data.platform);
+  const showHashtags = currentPost.hashtags && currentPost.hashtags.trim() !== '';
+  const canSuggestHashtags = !['Reddit', 'Quora', 'WhatsApp'].includes(currentPost.platform);
+  const isExternalUrl = currentPost.imageUrl.startsWith('http');
 
   return (
-    <div className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
-      <h2 className="text-xl font-bold mb-6 text-fuchsia-300 text-center">Seu post para {data.platform} está pronto para ser amplificado!</h2>
+    <div id="post-output-container" className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
+      <h2 className="text-xl font-bold mb-6 text-fuchsia-300 text-center">Seu post para {currentPost.platform} está pronto para ser amplificado!</h2>
       
       {/* Theme Section */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-slate-300 mb-2">TEMA PROPOSTO</h3>
         <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
-          <p className="text-slate-200">{data.theme}</p>
+          <p className="text-slate-200">{currentPost.theme}</p>
         </div>
       </div>
 
@@ -855,11 +881,11 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         <div className="flex flex-col">
           <h3 className="text-lg font-semibold mb-2 text-slate-300">IMAGEM / LINK</h3>
           {isExternalUrl ? (
-            <a href={data.imageUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir link da imagem externa" title="Ver imagem original">
+            <a href={currentPost.imageUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir link da imagem externa" title="Ver imagem original">
               <div className="aspect-square bg-slate-900 rounded-md overflow-hidden shadow-inner relative group cursor-pointer">
                 <img 
-                  src={data.imageUrl} 
-                  alt={`Pré-visualização da imagem externa para o tema: ${data.theme}`}
+                  src={currentPost.imageUrl} 
+                  alt={`Pré-visualização da imagem externa para o tema: ${currentPost.theme}`}
                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -870,8 +896,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           ) : (
             <div className="aspect-square bg-slate-900 rounded-md overflow-hidden shadow-inner">
               <img 
-                src={data.imageUrl} 
-                alt={`Imagem gerada por IA para o tema: ${data.theme}`}
+                src={currentPost.imageUrl} 
+                alt={`Imagem gerada por IA para o tema: ${currentPost.theme}`}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -884,9 +910,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           {/* Caption Section */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-slate-300">{data.platform === 'YouTube' ? 'TÍTULO E DESCRIÇÃO' : 'LEGENDA COMPLETA'}</h3>
+              <h3 className="text-lg font-semibold text-slate-300">{currentPost.platform === 'YouTube' ? 'TÍTULO E DESCRIÇÃO' : 'LEGENDA COMPLETA'}</h3>
               <button
-                onClick={() => handleCopy(data.caption, 'caption')}
+                onClick={() => handleCopy(currentPost.caption, 'caption')}
                 className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
                 aria-label="Copiar legenda"
               >
@@ -895,7 +921,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
               </button>
             </div>
             <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 max-h-48 overflow-y-auto custom-scrollbar">
-              <p className="text-slate-200 whitespace-pre-wrap">{data.caption}</p>
+              <p className="text-slate-200 whitespace-pre-wrap">{currentPost.caption}</p>
             </div>
           </div>
 
@@ -903,9 +929,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           {showHashtags && (
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold text-slate-300">{data.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'BLOCO DE HASHTAGS'}</h3>
+                  <h3 className="text-lg font-semibold text-slate-300">{currentPost.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'BLOCO DE HASHTAGS'}</h3>
                    <button
-                    onClick={() => handleCopy(data.hashtags, 'hashtags')}
+                    onClick={() => handleCopy(currentPost.hashtags, 'hashtags')}
                     className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
                     aria-label="Copiar hashtags"
                   >
@@ -914,7 +940,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                   </button>
                 </div>
                 <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
-                  <p className="text-cyan-300 break-words">{data.hashtags}</p>
+                  <p className="text-cyan-300 break-words">{currentPost.hashtags}</p>
                 </div>
               </div>
           )}
@@ -922,86 +948,52 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           {/* Creative Options Section */}
           <div>
             <h3 className="text-lg font-semibold text-slate-300 mb-2">Opções Criativas</h3>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px]">
-                {!variationData && !isGeneratingVariation && !variationError && (
+            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+                {isGeneratingVariations ? (
+                     <div className="flex items-center justify-center text-slate-400 min-h-[40px]">
+                        <SmallSpinner />
+                        <span className="ml-2 text-sm">Criando novas versões...</span>
+                    </div>
+                ) : variationsError ? (
+                    <div className="text-center">
+                        <p className="text-red-400 text-sm mb-2">{variationsError}</p>
+                        <button onClick={handleGenerateVariations} className="text-sm font-semibold text-slate-300 hover:text-white underline">
+                            Tentar Novamente
+                        </button>
+                    </div>
+                ) : variations ? (
+                     <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-fuchsia-300">Variações Geradas com IA</h4>
+                             <button
+                                onClick={handleGenerateVariations}
+                                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"
+                                aria-label="Gerar novas variações" title="Gerar Novas Variações"
+                            >
+                                <RegenerateIcon />
+                            </button>
+                        </div>
+                        {variations.map((variation, index) => (
+                           <div key={index} className="bg-slate-800/70 p-3 rounded-lg border border-slate-700 space-y-2">
+                                <h5 className="font-semibold text-slate-300">Variação {index + 1}</h5>
+                                <p className="text-sm text-slate-300 whitespace-pre-wrap max-h-24 overflow-y-auto custom-scrollbar">{variation.caption}</p>
+                                <p className="text-sm text-cyan-400 break-words">{variation.hashtags}</p>
+                                <div className="flex justify-end items-center gap-2 pt-2 border-t border-slate-700/50">
+                                     <button onClick={() => handleCopy(variation.caption, `var_caption_${index}`)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors"><CopyIcon/> {copied === `var_caption_${index}` ? 'Copiado!' : 'Legenda'}</button>
+                                     <button onClick={() => handleCopy(variation.hashtags, `var_tags_${index}`)} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors"><CopyIcon/> {copied === `var_tags_${index}` ? 'Copiado!' : 'Hashtags'}</button>
+                                     <button onClick={() => handleApplyVariation(variation)} className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md text-white bg-fuchsia-600 hover:bg-fuchsia-700 transition-colors"><UseIcon/> Usar esta Variação</button>
+                                </div>
+                           </div>
+                        ))}
+                    </div>
+                ) : (
                     <button
-                        onClick={handleGenerateVariation}
+                        onClick={handleGenerateVariations}
                         className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
                     >
                         <SparklesIcon />
-                        <span>Gerar Variação do Post</span>
+                        <span>Gerar Variações do Post</span>
                     </button>
-                )}
-
-                {isGeneratingVariation && (
-                    <div className="flex items-center justify-center text-slate-400">
-                        <SmallSpinner />
-                        <span className="ml-2 text-sm">Criando uma nova versão...</span>
-                    </div>
-                )}
-
-                {variationError && (
-                  <div className="text-center">
-                      <p className="text-red-400 text-sm mb-2">{variationError}</p>
-                      <button
-                          onClick={handleGenerateVariation}
-                          className="text-sm font-semibold text-slate-300 hover:text-white underline"
-                      >
-                          Tentar Novamente
-                      </button>
-                  </div>
-                )}
-
-                {variationData && (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                          <h4 className="font-bold text-fuchsia-300">Variação (Opção 2)</h4>
-                          <button
-                              onClick={handleGenerateVariation}
-                              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"
-                              aria-label="Gerar outra variação"
-                              title="Gerar outra variação"
-                          >
-                              <RegenerateIcon /> 
-                          </button>
-                      </div>
-                        
-                      <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <h5 className="text-sm font-semibold text-slate-400">Nova Legenda</h5>
-                            <button
-                              onClick={() => handleCopy(variationData.caption, 'var_caption')}
-                              className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700"
-                              aria-label="Copiar nova legenda"
-                            >
-                              <CopyIcon />
-                              <span>{copied === 'var_caption' ? 'Copiado!' : 'Copiar'}</span>
-                            </button>
-                          </div>
-                          <div className="bg-slate-800/50 p-3 rounded-md border border-slate-600/50 max-h-32 overflow-y-auto custom-scrollbar">
-                            <p className="text-slate-300 whitespace-pre-wrap text-sm">{variationData.caption}</p>
-                          </div>
-                      </div>
-
-                      {variationData.hashtags && (
-                          <div>
-                              <div className="flex justify-between items-center mb-1">
-                                <h5 className="text-sm font-semibold text-slate-400">Novas Hashtags</h5>
-                                <button
-                                  onClick={() => handleCopy(variationData.hashtags, 'var_hashtags')}
-                                  className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700"
-                                  aria-label="Copiar novas hashtags"
-                                >
-                                  <CopyIcon />
-                                  <span>{copied === 'var_hashtags' ? 'Copiado!' : 'Copiar'}</span>
-                                </button>
-                              </div>
-                              <div className="bg-slate-800/50 p-3 rounded-md border border-slate-600/50">
-                                <p className="text-cyan-400 break-words text-sm">{variationData.hashtags}</p>
-                              </div>
-                          </div>
-                      )}
-                    </div>
                 )}
             </div>
           </div>
@@ -1046,7 +1038,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           )}
 
             {/* Video Script Section */}
-            {data.platform === 'YouTube' && (
+            {currentPost.platform === 'YouTube' && (
                 <div>
                     <h3 className="text-lg font-semibold text-slate-300 mb-2">Roteiro para Vídeo</h3>
                     <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px]">
@@ -1089,7 +1081,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       </div>
       
        {/* Video Production Section */}
-       {data.platform === 'YouTube' && videoScript && (
+       {currentPost.platform === 'YouTube' && videoScript && (
           <div className="mt-8 pt-6 border-t border-slate-700">
             <h3 className="text-lg font-bold text-slate-300 mb-4 text-center">Produção de Vídeo Completo</h3>
             <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
@@ -1172,7 +1164,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
             >
                 {isSharing ? <SmallSpinner /> : <ShareIcon />}
-                <span className="ml-2">{isSharing ? 'Preparando...' : `Postar no ${data.platform}`}</span>
+                <span className="ml-2">{isSharing ? 'Preparando...' : `Postar no ${currentPost.platform}`}</span>
             </button>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

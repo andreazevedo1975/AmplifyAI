@@ -58,7 +58,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageOption, setImageOption] = useState<'prompt' | 'url' | 'none'>('prompt');
   const [imageUrl, setImageUrl] = useState('');
-  const [platform, setPlatform] = useState('Instagram');
+  const [platform, setPlatform] = useState('Facebook');
   const [selectedProfileUrl, setSelectedProfileUrl] = useState('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);

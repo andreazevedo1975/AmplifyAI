@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { GeneratedContent } from '../types';
 
 // FIX: Initialize GoogleGenAI with API key from environment variables.
@@ -394,11 +394,11 @@ export const generateInspirationalIdea = async (category: 'quote' | 'story' | 'r
   }
 };
 
-export const generatePostVariation = async (theme: string, platform: string, tone: string, originalCaption: string): Promise<GeneratedContent> => {
+export const generateMultiplePostVariations = async (theme: string, platform: string, tone: string, originalCaption: string): Promise<GeneratedContent[]> => {
   const specifics = getPlatformSpecifics(platform);
 
   const prompt = `
-    Você é um especialista em marketing de mídia social. Sua tarefa é criar uma VARIAÇÃO para um post já existente.
+    Você é um especialista em marketing de mídia social. Sua tarefa é criar 3 VARIAÇÕES distintas para um post já existente.
 
     **Plataforma:** "${platform}"
     **Tema Principal:** "${theme}"
@@ -410,54 +410,64 @@ export const generatePostVariation = async (theme: string, platform: string, ton
     """
 
     **Sua Tarefa:**
-    1.  **Crie uma Legenda Completamente Nova:** Escreva uma nova legenda para o mesmo tema e tom de voz, mas com uma abordagem, estrutura ou ângulo diferente. NÃO recicle frases da legenda original.
-    2.  **Gere Novas Hashtags:** Crie um novo conjunto de hashtags relevantes, seguindo a estratégia para "${platform}".
+    1.  **Crie 3 Legendas Completamente Novas:** Para cada variação, escreva uma nova legenda para o mesmo tema e tom de voz, mas com uma abordagem, estrutura ou ângulo diferente. NÃO recicle frases da legenda original.
+    2.  **Gere Novas Hashtags para cada Variação:** Crie um novo conjunto de hashtags relevantes para cada legenda, seguindo a estratégia para "${platform}".
         ${specifics.hashtagStrategy}
 
     **Instruções de Saída:**
-    Estruture sua resposta EXATAMENTE como um objeto JSON, sem nenhum texto adicional antes ou depois. O objeto JSON deve ter as seguintes chaves:
+    Sua resposta deve ser um objeto JSON contendo uma única chave "variations". O valor dessa chave deve ser um array com exatamente 3 objetos. Cada objeto representa uma variação e deve ter as seguintes chaves:
     -   "caption": (string) O texto da NOVA legenda, formatado com quebras de linha (\\n).
     -   "hashtags": (string) Uma única string contendo as NOVAS hashtags separadas por espaços.
-
-    Exemplo de saída JSON:
-    {
-      "caption": "Uma abordagem totalmente nova e criativa para o tema...",
-      "hashtags": "#novasideias #marketingcriativo #outraperspectiva"
-    }
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // Use flash for speed
+      model: 'gemini-2.5-flash',
       contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            variations: {
+              type: Type.ARRAY,
+              description: "Uma lista de 3 variações de post.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  caption: {
+                    type: Type.STRING,
+                    description: "O texto da nova legenda."
+                  },
+                  hashtags: {
+                    type: Type.STRING,
+                    description: "As novas hashtags relevantes."
+                  }
+                },
+                required: ["caption", "hashtags"]
+              }
+            }
+          },
+          required: ["variations"]
+        }
+      }
     });
 
     if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
-        throw new Error("[SAFETY_BLOCK] A variação foi bloqueada por motivos de segurança.");
-    }
-
-    const text = response.text.trim();
-    
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
-    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-        const jsonString = text.substring(startIndex, endIndex + 1);
-        try {
-            const parsedContent: GeneratedContent = JSON.parse(jsonString);
-            if (parsedContent.caption && typeof parsedContent.hashtags !== 'undefined') {
-                return parsedContent;
-            } else {
-                 throw new Error("[FORMAT_ERROR] A variação gerada pela IA está incompleta.");
-            }
-        } catch (e) {
-            throw new Error("[FORMAT_ERROR] A IA não retornou a variação no formato JSON esperado.");
-        }
+        throw new Error("[SAFETY_BLOCK] A geração de variações foi bloqueada por motivos de segurança.");
     }
     
-    throw new Error("[FORMAT_ERROR] A IA não retornou a variação no formato esperado.");
+    const jsonString = response.text.trim();
+    const parsedObject = JSON.parse(jsonString);
 
+    if (parsedObject.variations && Array.isArray(parsedObject.variations) && parsedObject.variations.length > 0) {
+      return parsedObject.variations;
+    } else {
+      throw new Error("[FORMAT_ERROR] A IA não retornou as variações no formato esperado.");
+    }
+    
   } catch (error) {
-    console.error("Erro ao gerar variação de conteúdo:", error);
+    console.error("Erro ao gerar variações de conteúdo:", error);
     const errorString = String(error).toLowerCase();
 
     if (errorString.includes('safety')) {
@@ -468,9 +478,10 @@ export const generatePostVariation = async (theme: string, platform: string, ton
         throw error; // Re-throw our specific errors
     }
 
-    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar a variação do post.");
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar as variações do post.");
   }
 };
+
 
 export const suggestHashtags = async (baseHashtags: string, platform: string): Promise<string[]> => {
   if (['Reddit', 'Quora', 'WhatsApp'].includes(platform) || !baseHashtags) {

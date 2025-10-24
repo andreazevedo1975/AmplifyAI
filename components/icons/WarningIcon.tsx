@@ -1,9 +1,13 @@
 import React from 'react';
 
-export const WarningIcon: React.FC = () => (
+interface WarningIconProps {
+  className?: string;
+}
+
+export const WarningIcon: React.FC<WarningIconProps> = ({ className = "h-7 w-7 flex-shrink-0" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className="h-7 w-7 flex-shrink-0"
+    className={className}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"

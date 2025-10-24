@@ -57,21 +57,19 @@ const toneOptions = [
 ];
 
 const voiceOptions = [
-  // Feminino
-  { id: 'Kore', name: 'Kore (Feminino, Calmo)' },
-  { id: 'Charon', name: 'Charon (Feminino, Grave)' },
-  { id: 'Lyra', name: 'Lyra (Feminino, Agudo)' },
-  { id: 'Aura', name: 'Aura (Feminino, Neutro)' },
-  { id: 'Elara', name: 'Elara (Feminino, Enérgico)' },
-  { id: 'Nyx', name: 'Nyx (Feminino, Profundo)' },
-  // Masculino
-  { id: 'Zephyr', name: 'Zephyr (Masculino, Calmo)' },
-  { id: 'Puck', name: 'Puck (Masculino, Enérgico)' },
-  { id: 'Fenrir', name: 'Fenrir (Masculino, Grave)' },
-  { id: 'Leo', name: 'Leo (Masculino, Profundo)' },
-  { id: 'Orion', name: 'Orion (Masculino, Neutro)' },
-  { id: 'Caelus', name: 'Caelus (Masculino, Agudo)' },
   { id: 'Atlas', name: 'Atlas (Masculino, Neutro)' },
+  { id: 'Aura', name: 'Aura (Feminino, Neutro)' },
+  { id: 'Caelus', name: 'Caelus (Masculino, Agudo)' },
+  { id: 'Charon', name: 'Charon (Feminino, Grave)' },
+  { id: 'Elara', name: 'Elara (Feminino, Enérgico)' },
+  { id: 'Fenrir', name: 'Fenrir (Masculino, Grave)' },
+  { id: 'Kore', name: 'Kore (Feminino, Calmo)' },
+  { id: 'Leo', name: 'Leo (Masculino, Profundo)' },
+  { id: 'Lyra', name: 'Lyra (Feminino, Agudo)' },
+  { id: 'Nyx', name: 'Nyx (Feminino, Profundo)' },
+  { id: 'Orion', name: 'Orion (Masculino, Neutro)' },
+  { id: 'Puck', name: 'Puck (Masculino, Enérgico)' },
+  { id: 'Zephyr', name: 'Zephyr (Masculino, Calmo)' },
 ];
 
 const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];
@@ -95,7 +93,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [scriptDescription, setScriptDescription] = useState('');
 
   const [audioText, setAudioText] = useState('');
-  const [audioVoice, setAudioVoice] = useState('Kore');
+  const [audioVoice, setAudioVoice] = useState(voiceOptions[0].id);
   const [audioEmotion, setAudioEmotion] = useState('Amigável');
   const [audioStyle, setAudioStyle] = useState('Conversacional');
   

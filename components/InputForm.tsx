@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
 import { generateImage, generateInspirationalIdea } from '../services/geminiService';
@@ -6,6 +6,8 @@ import { Spinner } from './Spinner';
 import { CloseIcon } from './icons/CloseIcon';
 import { Modal } from './Modal';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { ManageAccountsIcon } from './icons/ManageAccountsIcon';
+import { TrashIcon } from './icons/TrashIcon';
 
 
 interface InputFormProps {
@@ -25,6 +27,11 @@ interface InputFormProps {
   isLoading: boolean;
 }
 
+interface SavedProfile {
+  name: string;
+  url: string;
+}
+
 const platformDetails = [
   { name: 'Facebook', icon: <FacebookIcon /> },
   { name: 'Instagram', icon: <InstagramIcon /> },
@@ -40,671 +47,499 @@ const platformDetails = [
   { name: 'YouTube', icon: <YouTubeIcon /> },
 ];
 
-const tones = ['Envolvente', 'Profissional', 'Engraçado', 'Inspirador', 'Informativo', 'Casual'];
-const videoStyles = [
-    'Abstrato', 
-    'Animação', 
-    'Aquarela Animada',
-    'Arte de Papel', 
-    'Cinemático', 
-    'Cyberpunk',
-    'Documentário',
-    'Estilo Vlog',
-    'Fantasia Épica', 
-    'Filmagem de Drone', 
-    'Grão de Filme Vintage',
-    'Infográfico Animado', 
-    'Minimalista', 
-    'Neon Noir',
-    'Preto e Branco', 
-    'Render 3D', 
-    'Retrô', 
-    'Slow Motion Dramático',
-    'Stop Motion', 
-    'Time-lapse', 
-    'Vaporwave', 
+const toneOptions = [
+  'Envolvente', 'Profissional', 'Inspirador', 'Divertido', 'Informativo', 
+  'Casual', 'Formal', 'Urgente', 'Empático', 'Ousado', 'Minimalista'
 ];
-
 
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
   const [mode, setMode] = useState<'post' | 'video' | 'script'>('post');
   const [theme, setTheme] = useState('');
-  const [imageInput, setImageInput] = useState('');
-  const [platform, setPlatform] = useState(platformDetails[0].name);
-  const [profileUrl, setProfileUrl] = useState('');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [imageOption, setImageOption] = useState<'prompt' | 'url' | 'none'>('prompt');
+  const [imageUrl, setImageUrl] = useState('');
+  const [platform, setPlatform] = useState('Instagram');
+  const [selectedProfileUrl, setSelectedProfileUrl] = useState('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [tone, setTone] = useState('Envolvente');
-  const [videoStyle, setVideoStyle] = useState(videoStyles[0]);
-  const [videoLength, setVideoLength] = useState('');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
   const [scriptTitle, setScriptTitle] = useState('');
   const [scriptDescription, setScriptDescription] = useState('');
   
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [isAutoGeneratingImage, setIsAutoGeneratingImage] = useState(false);
+  const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+  const [ideaError, setIdeaError] = useState<string | null>(null);
 
-  const [profileUrlState, setProfileUrlState] = useState<{
-    status: 'idle' | 'valid' | 'invalid' | 'warning';
-    message: string | null;
-  }>({ status: 'idle', message: null });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileUrl, setNewProfileUrl] = useState('');
+  const [profileError, setProfileError] = useState<string | null>(null);
   
-  // New states for the inspiration modal
-  const [isInspirationModalOpen, setIsInspirationModalOpen] = useState(false);
-  const [inspirationCategory, setInspirationCategory] = useState<'quote' | 'story' | 'reflection' | null>(null);
-  const [generatedInspiration, setGeneratedInspiration] = useState('');
-  const [isInspirationLoading, setIsInspirationLoading] = useState(false);
-  const [inspirationError, setInspirationError] = useState<string | null>(null);
+  // Load profiles from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedProfiles = localStorage.getItem('amplifyai_profiles');
+      if (storedProfiles) {
+        setSavedProfiles(JSON.parse(storedProfiles));
+      }
+    } catch (error) {
+      console.error("Failed to load profiles from localStorage", error);
+    }
+  }, []);
+
+  // Save profiles to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('amplifyai_profiles', JSON.stringify(savedProfiles));
+    } catch (error) {
+      console.error("Failed to save profiles to localStorage", error);
+    }
+  }, [savedProfiles]);
+
+  const handleAddProfile = () => {
+    setProfileError(null);
+    if (!newProfileName.trim() || !newProfileUrl.trim()) {
+      setProfileError("Nome e URL do perfil são obrigatórios.");
+      return;
+    }
+    try {
+      new URL(newProfileUrl);
+    } catch (_) {
+      setProfileError("Por favor, insira uma URL válida.");
+      return;
+    }
+    setSavedProfiles([...savedProfiles, { name: newProfileName, url: newProfileUrl }]);
+    setNewProfileName('');
+    setNewProfileUrl('');
+  };
+
+  const handleDeleteProfile = (urlToDelete: string) => {
+    setSavedProfiles(savedProfiles.filter(p => p.url !== urlToDelete));
+    if (selectedProfileUrl === urlToDelete) {
+      setSelectedProfileUrl('');
+    }
+  };
 
   const isUrl = (text: string): boolean => {
     try {
       new URL(text);
-      return text.startsWith('http');
+      return true;
     } catch (_) {
       return false;
     }
   };
 
-  const handleRemovePreview = () => {
-    setPreviewUrl(null);
-    setImageInput('');
-    setPreviewError(null);
-    setIsPreviewLoading(false);
-  };
-  
-  const handleGeneratePreview = async () => {
-      if (!imageInput.trim() || isUrl(imageInput)) return;
-      setIsPreviewLoading(true);
-      setPreviewError(null);
-      setPreviewUrl(null);
-      try {
-        const imageUrl = await generateImage(imageInput, platform);
-        setPreviewUrl(imageUrl);
-      } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Falha ao gerar a pré-visualização.";
-          if (errorMessage.includes('[SAFETY_BLOCK]')) {
-             setPreviewError("A imagem foi bloqueada por segurança. Tente um prompt diferente.");
-          } else {
-             setPreviewError("Não foi possível gerar a pré-visualização. Tente novamente.");
-          }
-          console.error(error);
-      } finally {
-          setIsPreviewLoading(false);
-      }
-  };
-
-  const handleUrlBlur = () => {
-    if (imageInput && isUrl(imageInput)) {
-      setPreviewUrl(imageInput);
-      setPreviewError(null);
-    }
-  };
-
-  const handleGenerateInspiration = async (category: 'quote' | 'story' | 'reflection') => {
-    setInspirationCategory(category);
-    setIsInspirationLoading(true);
-    setGeneratedInspiration('');
-    setInspirationError(null);
+  const handleGenerateIdea = async (category: 'quote' | 'story' | 'reflection') => {
+    setIsGeneratingIdea(true);
+    setIdeaError(null);
     try {
       const idea = await generateInspirationalIdea(category);
-      setGeneratedInspiration(idea);
+      setTheme(idea);
     } catch (error) {
-      setInspirationError(error instanceof Error ? error.message : "Falha ao buscar inspiração.");
+      console.error("Error generating idea:", error);
+      setIdeaError("Não foi possível gerar a ideia. Tente novamente.");
     } finally {
-      setIsInspirationLoading(false);
+      setIsGeneratingIdea(false);
     }
   };
 
-  const handleUseInspiration = () => {
-    if (generatedInspiration) {
-      setTheme(generatedInspiration);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    let imageInput = '';
+    if (imageOption === 'url') {
+      imageInput = imageUrl;
+    } else if (imageOption === 'prompt') {
+      // Use the provided prompt, or if it's empty, use the theme as the prompt.
+      imageInput = imagePrompt.trim() || theme.trim();
     }
-    setIsInspirationModalOpen(false);
+    // If imageOption is 'none', imageInput remains empty.
+
+    onGenerate({
+      mode,
+      theme, 
+      imageInput, 
+      platform,
+      profileUrl: selectedProfileUrl, 
+      thinkingMode,
+      creativityMode,
+      focusMode,
+      tone,
+      scriptTitle,
+      scriptDescription,
+    });
   };
 
-  const resetInspirationModal = () => {
-      setInspirationCategory(null);
-      setGeneratedInspiration('');
-      setIsInspirationLoading(false);
-      setInspirationError(null);
+  const isFormValid = () => {
+    if (isLoading) return false;
+    if (mode === 'script') {
+        return scriptTitle.trim() !== '' && scriptDescription.trim() !== '';
+    }
+    if (theme.trim() === '') return false;
+    if (imageOption === 'url' && (!imageUrl.trim() || !isUrl(imageUrl))) return false;
+    // For prompt, an empty prompt is allowed, as it will default to the theme.
+    return true;
   };
   
-  const handleOpenInspirationModal = () => {
-    resetInspirationModal();
-    setIsInspirationModalOpen(true);
-  };
+  const renderModeSpecificFields = () => {
+    switch(mode) {
+      case 'video':
+        return (
+          <>
+            <div className="mb-6">
+              <label htmlFor="theme" className="block text-sm font-medium text-slate-300 mb-2">
+                Prompt para o Vídeo
+              </label>
+              <textarea
+                id="theme"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                placeholder="Ex: Um astronauta surfando em uma onda cósmica em estilo neon."
+                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                rows={3}
+                required
+              />
+               <p className="text-xs text-slate-400 mt-1">Descreva a cena que você quer gerar. Seja criativo!</p>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Imagem Inicial (Opcional)
+              </label>
+              <div className="flex items-center space-x-4 mb-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <span>Nenhuma</span>
+                </label>
+                 <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <span>URL da Imagem</span>
+                </label>
+              </div>
+               {imageOption === 'url' && (
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                />
+              )}
+               <p className="text-xs text-slate-400 mt-1">Você pode fornecer uma imagem como ponto de partida para o vídeo.</p>
+            </div>
+          </>
+        );
+      case 'script':
+         return (
+           <>
+            <div className="mb-6">
+              <label htmlFor="scriptTitle" className="block text-sm font-medium text-slate-300 mb-2">
+                Título do Vídeo
+              </label>
+              <input
+                id="scriptTitle"
+                type="text"
+                value={scriptTitle}
+                onChange={(e) => setScriptTitle(e.target.value)}
+                placeholder="Ex: 5 Dicas Incríveis para Edição de Vídeo"
+                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                required
+              />
+            </div>
+            <div className="mb-6">
+              <label htmlFor="scriptDescription" className="block text-sm font-medium text-slate-300 mb-2">
+                Breve Descrição do Conteúdo
+              </label>
+              <textarea
+                id="scriptDescription"
+                value={scriptDescription}
+                onChange={(e) => setScriptDescription(e.target.value)}
+                placeholder="Ex: Neste vídeo, vamos cobrir as melhores técnicas de corte, color grading, uso de trilha sonora, e mais."
+                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                rows={3}
+                required
+              />
+            </div>
+          </>
+         );
+      case 'post':
+      default:
+        return (
+          <>
+            <div className="mb-6">
+              <label htmlFor="theme" className="block text-sm font-medium text-slate-300 mb-2">
+                Tema Central do Post
+              </label>
+               <div className="relative">
+                <textarea
+                  id="theme"
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  placeholder="Ex: A importância da inteligência artificial no marketing de conteúdo."
+                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 pr-10 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  rows={3}
+                  required
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setTheme('')} 
+                  className={`absolute top-2 right-2 p-1 rounded-full text-slate-400 hover:bg-slate-700 hover:text-white transition-opacity ${theme ? 'opacity-100' : 'opacity-0'}`}
+                  aria-label="Limpar tema"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              
+              <div className="mt-3 text-center">
+                 <p className="text-sm text-slate-400 mb-2">Sem ideias? Deixe a IA te inspirar!</p>
+                 <div className="flex justify-center items-center gap-2 flex-wrap">
+                    {isGeneratingIdea ? <Spinner /> : (
+                      <>
+                        <button type="button" onClick={() => handleGenerateIdea('quote')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Citação</button>
+                        <button type="button" onClick={() => handleGenerateIdea('story')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Ideia</button>
+                        <button type="button" onClick={() => handleGenerateIdea('reflection')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Reflexão</button>
+                      </>
+                    )}
+                 </div>
+                 {ideaError && <p className="text-xs text-red-400 mt-2">{ideaError}</p>}
+              </div>
+            </div>
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const baseOptions = {
-        theme,
-        imageInput,
-        platform,
-        profileUrl,
-        thinkingMode,
-        creativityMode,
-        focusMode,
-        tone,
-        scriptTitle,
-        scriptDescription
-    };
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Fonte da Imagem
+              </label>
+              <div className="flex items-center space-x-4 mb-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="imageOption" value="prompt" checked={imageOption === 'prompt'} onChange={() => setImageOption('prompt')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <span>Gerar com IA</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <span>Usar URL</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <span>Apenas Texto</span>
+                </label>
+              </div>
 
-    if (mode === 'video') {
-      if (!theme.trim()) return;
-      const videoPrompt = `${theme}. Estilo: ${videoStyle}. ${videoLength ? `Duração desejada: ${videoLength}.` : ''}`.trim();
-      onGenerate({ ...baseOptions, mode: 'video', theme: videoPrompt });
+              {imageOption === 'prompt' && (
+                <input
+                  type="text"
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  placeholder="Opcional: Descreva a imagem. Ex: Um robô escrevendo em um laptop."
+                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                />
+              )}
+              {imageOption === 'url' && (
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  required
+                />
+              )}
+               {imageOption === 'url' && imageUrl && !isUrl(imageUrl) && (
+                  <p className="text-xs text-red-400 mt-1 flex items-center"><WarningIcon /> URL inválida.</p>
+               )}
+            </div>
 
-    } else if (mode === 'post') {
-        if (!theme.trim() || profileUrlState.status === 'invalid') return;
-        
-        let imageUrl = previewUrl;
-        
-        if (!imageUrl) {
-            setIsAutoGeneratingImage(true);
-            setPreviewError(null);
-            try {
-                const prompt = imageInput.trim()
-                    ? imageInput
-                    : `Gere uma imagem para um post de ${platform} com o tema "${theme}". O tom de voz da legenda será "${tone}", então a imagem deve refletir esse sentimento. Por exemplo, para 'Inspirador', a imagem deve ser motivacional. Para 'Profissional', algo mais sóbrio e corporativo. Para 'Engraçado', algo divertido.`;
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Plataforma de Destino
+              </label>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {platformDetails.map(({ name, icon }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setPlatform(name)}
+                    className={`p-3 rounded-lg flex flex-col items-center justify-center space-y-2 transition-all duration-200 border-2 ${
+                      platform === name ? 'bg-slate-700 border-fuchsia-500' : 'bg-slate-800 border-slate-600 hover:border-slate-500'
+                    }`}
+                    aria-pressed={platform === name}
+                  >
+                    <span className={platform === name ? 'text-white' : 'text-slate-400'}>{icon}</span>
+                    <span className={`text-xs font-semibold ${platform === name ? 'text-white' : 'text-slate-400'}`}>{name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-2">
+                <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="font-semibold text-fuchsia-400 hover:text-fuchsia-300 transition-colors">
+                    Opções Avançadas {isAdvancedOpen ? '▾' : '▸'}
+                </button>
+            </div>
+
+            {isAdvancedOpen && (
+              <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg mb-6 animate-fade-in space-y-6">
+                <div>
+                  <label htmlFor="profileUrl" className="block text-sm font-medium text-slate-300 mb-2">
+                    Análise de Tom de Voz (URL do Perfil)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                        id="profileUrl"
+                        value={selectedProfileUrl}
+                        onChange={(e) => setSelectedProfileUrl(e.target.value)}
+                        className="flex-grow w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    >
+                        <option value="">Nenhum perfil selecionado</option>
+                        {savedProfiles.map(profile => (
+                            <option key={profile.url} value={profile.url}>{profile.name}</option>
+                        ))}
+                    </select>
+                    <button type="button" onClick={() => setIsProfileModalOpen(true)} className="p-3 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors" aria-label="Gerenciar Perfis Salvos" title="Gerenciar Perfis Salvos">
+                        <ManageAccountsIcon />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="tone" className="block text-sm font-medium text-slate-300 mb-2">
+                      Tom de Voz Principal
+                  </label>
+                  <select
+                      id="tone"
+                      value={tone}
+                      onChange={(e) => setTone(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  >
+                      {toneOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
                 
-                imageUrl = await generateImage(prompt, platform);
-            } catch (error) {
-                console.error("Error auto-generating image:", error);
-                const errorMessage = error instanceof Error ? error.message : "Falha ao gerar a imagem.";
-                if (errorMessage.includes('[SAFETY_BLOCK]')) {
-                    setPreviewError("A imagem foi bloqueada por segurança. Tente um prompt diferente.");
-                } else {
-                    setPreviewError("Não foi possível gerar a imagem automaticamente. Tente novamente.");
-                }
-                setIsAutoGeneratingImage(false);
-                return; 
-            } finally {
-                setIsAutoGeneratingImage(false);
-            }
-        }
-        
-        onGenerate({ ...baseOptions, mode: 'post', imageInput: imageUrl || '' });
-
-    } else if (mode === 'script') {
-        if (!scriptTitle.trim()) return;
-        onGenerate({ ...baseOptions, mode: 'script' });
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Modos da IA</label>
+                  <div className="space-y-3">
+                    <div className="relative flex items-start">
+                      <div className="flex items-center h-5">
+                          <input id="thinkingMode" type="checkbox" checked={thinkingMode} onChange={(e) => setThinkingMode(e.target.checked)} className="focus:ring-fuchsia-500 h-4 w-4 text-fuchsia-600 border-slate-500 rounded bg-slate-700" />
+                      </div>
+                      <div className="ml-3 text-sm">
+                          <label htmlFor="thinkingMode" className="font-medium text-slate-200">Análise Profunda</label>
+                          <p className="text-slate-400 text-xs">Usa um modelo mais potente para raciocínio complexo. A geração pode ser mais lenta.</p>
+                      </div>
+                    </div>
+                     <div className="relative flex items-start">
+                      <div className="flex items-center h-5">
+                          <input id="creativityMode" type="checkbox" checked={creativityMode} onChange={(e) => setCreativityMode(e.target.checked)} className="focus:ring-fuchsia-500 h-4 w-4 text-fuchsia-600 border-slate-500 rounded bg-slate-700" />
+                      </div>
+                      <div className="ml-3 text-sm">
+                          <label htmlFor="creativityMode" className="font-medium text-slate-200">Criatividade Aumentada</label>
+                          <p className="text-slate-400 text-xs">Incentiva a IA a gerar ideias mais ousadas e menos convencionais.</p>
+                      </div>
+                    </div>
+                     <div className="relative flex items-start">
+                      <div className="flex items-center h-5">
+                          <input id="focusMode" type="checkbox" checked={focusMode} onChange={(e) => setFocusMode(e.target.checked)} className="focus:ring-fuchsia-500 h-4 w-4 text-fuchsia-600 border-slate-500 rounded bg-slate-700" />
+                      </div>
+                      <div className="ml-3 text-sm">
+                          <label htmlFor="focusMode" className="font-medium text-slate-200">Foco no Tema</label>
+                          <p className="text-slate-400 text-xs">Instrui a IA a se ater estritamente ao tema, sem adicionar informações extras.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        );
     }
-  };
-
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfileUrl(e.target.value);
-    if (profileUrlState.status !== 'idle') {
-      setProfileUrlState({ status: 'idle', message: null });
-    }
-  };
-
-  const validateUrlOnBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const url = e.target.value.trim();
-    if (!url) {
-      setProfileUrlState({ status: 'idle', message: null });
-      return;
-    }
-
-    try {
-      const parsedUrl = new URL(url);
-      const hostname = parsedUrl.hostname.toLowerCase();
-      
-      if (['linkedin.com', 'www.linkedin.com', 'facebook.com', 'www.facebook.com', 'instagram.com', 'www.instagram.com'].includes(hostname)) {
-        setProfileUrlState({
-          status: 'warning',
-          message: 'A IA pode não conseguir analisar este link. A personalização de tom de voz pode ser limitada.',
-        });
-      } else {
-        setProfileUrlState({ status: 'valid', message: null });
-      }
-
-    } catch (error) {
-      setProfileUrlState({
-        status: 'invalid',
-        message: 'Formato de URL inválido. Insira um link completo (ex: https://site.com).',
-      });
-    }
-  };
+  }
 
 
   return (
-    <>
-    <form onSubmit={handleSubmit} className="bg-slate-800/60 p-6 rounded-lg shadow-lg space-y-6 border border-slate-700">
-      
-      <div>
-        <div className="flex justify-center mb-6">
-            <div className="bg-slate-900/50 border border-slate-700 rounded-full p-1 flex space-x-1">
-                <button
-                    type="button"
-                    onClick={() => setMode('post')}
-                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'post' ? 'bg-fuchsia-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}
-                >
-                    Gerar Post
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setMode('video')}
-                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'video' ? 'bg-cyan-500 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}
-                >
-                    Gerar Vídeo
-                </button>
-                 <button
-                    type="button"
-                    onClick={() => setMode('script')}
-                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'script' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}
-                >
-                    Gerar Roteiro
-                </button>
-            </div>
-        </div>
+    <form onSubmit={handleSubmit} className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700">
+      <div className="flex justify-center mb-6 border-b border-slate-700">
+          <button type="button" onClick={() => setMode('post')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'post' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Gerar Post
+          </button>
+          <button type="button" onClick={() => setMode('video')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'video' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Gerar Vídeo
+          </button>
+          <button type="button" onClick={() => setMode('script')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'script' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Gerar Roteiro
+          </button>
       </div>
-      
-      {mode === 'script' ? (
-        <>
-            <div>
-                <label htmlFor="script-title" className="block text-sm font-semibold text-slate-300 mb-2">
-                  1. Título do Vídeo
-                </label>
-                <input
-                  id="script-title"
-                  type="text"
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-slate-200 placeholder-slate-500 p-3 transition"
-                  placeholder="Ex: Como a IA está revolucionando a música"
-                  value={scriptTitle}
-                  onChange={(e) => setScriptTitle(e.target.value)}
-                  required
-                />
-            </div>
-            <div>
-                <label htmlFor="script-description" className="block text-sm font-semibold text-slate-300 mb-2">
-                  2. Descrição / Tópicos (Opcional)
-                </label>
-                <textarea
-                  id="script-description"
-                  rows={3}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-slate-200 placeholder-slate-500 p-3 transition"
-                  placeholder="Ex: Abordar o uso de IA na composição, produção e o futuro dos artistas."
-                  value={scriptDescription}
-                  onChange={(e) => setScriptDescription(e.target.value)}
-                />
-            </div>
-        </>
-      ) : (
-      <>
-        <div>
-           <div className="flex justify-between items-center mb-2">
-            <label htmlFor="theme" className="block text-sm font-semibold text-slate-300">
-              1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
-            </label>
-            {mode === 'post' && (
-              <button 
-                type="button" 
-                onClick={handleOpenInspirationModal}
-                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-fuchsia-300 bg-fuchsia-900/40 hover:bg-fuchsia-900/70 transition-colors"
-              >
-                <SparklesIcon />
-                <span>Buscar Inspiração</span>
-              </button>
-            )}
-          </div>
-          <textarea
-            id="theme"
-            rows={3}
-            className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition"
-            placeholder={mode === 'post' ? "Ex: Os benefícios da inteligência artificial para pequenas empresas" : "Ex: Um astronauta surfando em um anel de Saturno, com nebulosas coloridas ao fundo"}
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            required
-          />
-        </div>
 
-        <div>
-          <label htmlFor="image-input" className="block text-sm font-semibold text-slate-300 mb-2">
-            2. {mode === 'post' ? 'Imagem (Opcional)' : 'Imagem de Referência (Opcional)'}
-          </label>
-          <div className="flex items-center gap-3">
-              <input
-                type="text"
-                id="image-input"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-                placeholder={mode === 'post' ? "Deixe em branco, insira um prompt ou URL" : "Insira o URL de uma imagem para guiar a IA"}
-                value={imageInput}
-                onChange={(e) => setImageInput(e.target.value)}
-                onBlur={handleUrlBlur}
-                disabled={!!previewUrl || isPreviewLoading}
-              />
-              {mode === 'post' && !isUrl(imageInput) && (
-                <button 
-                  type="button"
-                  onClick={handleGeneratePreview}
-                  disabled={!imageInput.trim() || !!previewUrl || isPreviewLoading}
-                  className="py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Pré-visualizar
-                </button>
-              )}
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {mode === 'post' ? 'Forneça um prompt para a IA ou o URL de uma imagem existente.' : 'Forneça o URL de uma imagem para servir de ponto de partida para o vídeo.'}
-          </p>
+      {renderModeSpecificFields()}
 
-          {(isPreviewLoading || previewError || previewUrl) && (
-              <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
-                  {isPreviewLoading && (
-                      <div className="flex items-center justify-center text-slate-400">
-                          <Spinner />
-                          <span className="ml-2">Gerando pré-visualização...</span>
-                      </div>
-                  )}
-                  {previewError && (
-                       <p className="text-sm text-red-400 text-center flex items-center justify-center gap-1.5"><WarningIcon /> {previewError}</p>
-                  )}
-                  {previewUrl && !previewError && (
-                      <div className="relative group w-full aspect-video">
-                          <img 
-                              src={previewUrl} 
-                              alt="Pré-visualização da imagem" 
-                              className="rounded-md object-contain w-full h-full"
-                              onLoad={() => { setIsPreviewLoading(false); setPreviewError(null); }}
-                              onError={() => { setPreviewError("Não foi possível carregar a imagem do URL."); setPreviewUrl(null); }}
-                          />
-                           <button 
-                              type="button" 
-                              onClick={handleRemovePreview}
-                              className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white transition-opacity opacity-0 group-hover:opacity-100"
-                              aria-label="Remover pré-visualização"
-                          >
-                              <CloseIcon />
-                          </button>
-                      </div>
-                  )}
-              </div>
-          )}
-        </div>
-      </>
-      )}
+      <div>
+        <button
+          type="submit"
+          disabled={!isFormValid()}
+          className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+        >
+          {isLoading ? <Spinner /> : <SparklesIcon />}
+          <span className="ml-2">{isLoading ? 'Gerando...' : 'Amplificar Conteúdo'}</span>
+        </button>
+      </div>
 
-      {mode === 'post' ? (
-        <>
-            <div>
-              <label htmlFor="profile-url" className="block text-sm font-semibold text-slate-300 mb-2">
-                3. URL do Perfil (Opcional)
-              </label>
-              <input
-                type="url"
-                id="profile-url"
-                className={`w-full bg-slate-900/50 border rounded-md shadow-sm text-slate-200 placeholder-slate-500 p-3 transition ${
-                  profileUrlState.status === 'invalid' 
-                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-                    : 'border-slate-600 focus:ring-fuchsia-500 focus:border-fuchsia-500'
-                }`}
-                placeholder="https://www.linkedin.com/in/seu-perfil/"
-                value={profileUrl}
-                onChange={handleUrlChange}
-                onBlur={validateUrlOnBlur}
-                aria-invalid={profileUrlState.status === 'invalid'}
-                aria-describedby="profile-url-feedback"
-              />
-              <div id="profile-url-feedback" aria-live="polite" className="mt-2 min-h-[20px]">
-                  {profileUrlState.status === 'invalid' ? (
-                      <p className="text-sm text-red-400 flex items-center gap-1.5"><WarningIcon /> {profileUrlState.message}</p>
-                  ) : profileUrlState.status === 'warning' ? (
-                      <p className="text-sm text-amber-400 flex items-center gap-1.5"><WarningIcon /> {profileUrlState.message}</p>
-                  ) : (
-                      <p className="text-xs text-slate-500">
-                          Forneça um link para que a IA possa analisar e adaptar o tom de voz.
-                      </p>
-                  )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                4. Tom de Voz da Legenda
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {tones.map((t) => (
-                  <div key={t}>
-                    <input
-                      type="radio"
-                      id={`tone-${t}`}
-                      name="tone"
-                      value={t}
-                      checked={tone === t}
-                      onChange={(e) => setTone(e.target.value)}
-                      className="sr-only peer"
-                    />
-                    <label
-                      htmlFor={`tone-${t}`}
-                      className="w-full flex items-center justify-center p-3 text-slate-300 bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent peer-checked:border-fuchsia-500 peer-checked:text-fuchsia-300 peer-checked:bg-fuchsia-900/30 hover:bg-slate-700"
-                    >
-                      <span className="text-sm font-medium text-center">{t}</span>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                5. Modos de Geração (Opcional)
-              </label>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between bg-slate-900/50 border border-slate-600 rounded-md p-3">
-                  <div>
-                    <h4 className="font-semibold text-slate-200">Ativar Análise Profunda</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                      Ideal para temas complexos. A IA usará um modelo mais potente para uma análise aprofundada. A geração pode levar mais tempo.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setThinkingMode(!thinkingMode)}
-                    className={`${
-                      thinkingMode ? 'bg-fuchsia-600' : 'bg-slate-700'
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-slate-800`}
-                    role="switch"
-                    aria-checked={thinkingMode}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`${
-                        thinkingMode ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                    />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between bg-slate-900/50 border border-slate-600 rounded-md p-3">
-                  <div>
-                    <h4 className="font-semibold text-slate-200">Ativar Modo Criatividade</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                      Ideal para brainstorm e ideias inovadoras. A IA irá gerar conteúdo mais ousado e experimental.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCreativityMode(!creativityMode)}
-                    className={`${
-                      creativityMode ? 'bg-cyan-500' : 'bg-slate-700'
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-800`}
-                    role="switch"
-                    aria-checked={creativityMode}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`${
-                        creativityMode ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                    />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between bg-slate-900/50 border border-slate-600 rounded-md p-3">
-                  <div>
-                    <h4 className="font-semibold text-slate-200">Ativar Modo de Foco Profundo</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                      Instrui a IA a se ater estritamente ao tema, evitando criatividade e tangentes, para uma resposta mais direta e específica.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFocusMode(!focusMode)}
-                    className={`${
-                      focusMode ? 'bg-amber-500' : 'bg-slate-700'
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-800`}
-                    role="switch"
-                    aria-checked={focusMode}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`${
-                        focusMode ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                6. Plataforma de Destino
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                {platformDetails.map((p) => (
-                  <div key={p.name}>
-                    <input
-                      type="radio"
-                      id={p.name}
-                      name="platform"
-                      value={p.name}
-                      checked={platform === p.name}
-                      onChange={(e) => setPlatform(e.target.value)}
-                      className="sr-only peer"
-                    />
-                    <label
-                      htmlFor={p.name}
-                      className="w-full flex flex-col items-center justify-center gap-2 p-4 text-slate-300 bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent peer-checked:border-fuchsia-500 peer-checked:text-fuchsia-300 peer-checked:bg-fuchsia-900/30 hover:bg-slate-700"
-                    >
-                      {p.icon}
-                      <span className="text-sm font-medium text-center">{p.name}</span>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-        </>
-      ) : mode === 'video' ? (
-        <>
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                3. Estilo do Vídeo
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {videoStyles.map((style) => (
-                  <div key={style}>
-                    <input
-                      type="radio"
-                      id={`style-${style}`}
-                      name="video-style"
-                      value={style}
-                      checked={videoStyle === style}
-                      onChange={(e) => setVideoStyle(e.target.value)}
-                      className="sr-only peer"
-                    />
-                    <label
-                      htmlFor={`style-${style}`}
-                      className="w-full flex items-center justify-center p-3 text-slate-300 bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent peer-checked:border-cyan-500 peer-checked:text-cyan-300 peer-checked:bg-cyan-900/30 hover:bg-slate-700"
-                    >
-                      <span className="text-sm font-medium text-center">{style}</span>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label htmlFor="video-length" className="block text-sm font-semibold text-slate-300 mb-2">
-                4. Duração Desejada (Opcional)
-              </label>
-              <input
-                type="text"
-                id="video-length"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 text-slate-200 placeholder-slate-500 p-3 transition"
-                placeholder="Ex: 5 segundos, clipe curto"
-                value={videoLength}
-                onChange={(e) => setVideoLength(e.target.value)}
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                A IA tentará seguir a duração sugerida.
-              </p>
-            </div>
-        </>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={isLoading || isAutoGeneratingImage || (mode === 'post' && !theme.trim()) || (mode === 'video' && !theme.trim()) || (mode === 'script' && !scriptTitle.trim()) || (mode === 'post' && profileUrlState.status === 'invalid')}
-        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 ${
-            mode === 'post' 
-            ? 'bg-fuchsia-600 hover:bg-fuchsia-700 focus:ring-fuchsia-500 disabled:bg-slate-600'
-            : mode === 'video'
-            ? 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 disabled:bg-slate-600'
-            : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 disabled:bg-slate-600'
-        }`}
-      >
-        {isAutoGeneratingImage ? 'Gerando Imagem...' : isLoading ? 'Gerando...' : 
-            mode === 'post' ? 'Gerar Post com IA ✨' : 
-            mode === 'video' ? 'Gerar Vídeo com IA 🎬' : 
-            'Gerar Roteiro com IA 📝'}
-      </button>
-    </form>
-    <Modal
-        isOpen={isInspirationModalOpen}
-        onClose={() => setIsInspirationModalOpen(false)}
-        title="Encontre sua Inspiração"
-    >
+       <Modal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Gerenciar Perfis de Tom de Voz">
         <div className="space-y-6">
             <div>
-                <p className="text-slate-400 mb-4">Selecione uma categoria para a IA gerar uma ideia. A ideia gerada preencherá o campo principal do formulário.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <button onClick={() => handleGenerateInspiration('quote')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'quote' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>Citação Motivacional</button>
-                    <button onClick={() => handleGenerateInspiration('story')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'story' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>História de Sucesso</button>
-                    <button onClick={() => handleGenerateInspiration('reflection')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'reflection' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>Momento de Reflexão</button>
-                </div>
+                <h3 className="text-md font-semibold text-slate-300 mb-3">Perfis Salvos</h3>
+                {savedProfiles.length > 0 ? (
+                    <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                        {savedProfiles.map(profile => (
+                            <li key={profile.url} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-md">
+                                <div>
+                                    <p className="font-semibold text-slate-200">{profile.name}</p>
+                                    <p className="text-xs text-slate-400 truncate max-w-xs">{profile.url}</p>
+                                </div>
+                                <button
+                                    onClick={() => handleDeleteProfile(profile.url)}
+                                    className="p-2 rounded-full text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
+                                    aria-label={`Excluir perfil ${profile.name}`}
+                                >
+                                    <TrashIcon />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-slate-400 text-center py-4 bg-slate-900/50 rounded-md">Nenhum perfil salvo ainda.</p>
+                )}
             </div>
 
-            {(isInspirationLoading || generatedInspiration || inspirationError) && (
-                <div className="bg-slate-900/50 p-6 rounded-lg border border-slate-700 min-h-[150px] flex items-center justify-center">
-                    {isInspirationLoading && <Spinner />}
-                    {inspirationError && <p className="text-red-400 text-center">{inspirationError}</p>}
-                    {generatedInspiration && !isInspirationLoading && (
-                        <p className="text-lg text-slate-200 text-center font-medium animate-fade-in">"{generatedInspiration}"</p>
-                    )}
-                </div>
-            )}
-            
-            {(generatedInspiration || inspirationError) && !isInspirationLoading && (
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                        onClick={() => inspirationCategory && handleGenerateInspiration(inspirationCategory)}
-                        className="w-full flex justify-center py-3 px-4 border border-slate-600 rounded-lg shadow-sm text-sm font-semibold text-slate-200 bg-slate-700/50 hover:bg-slate-700 transition-colors"
-                    >
-                        Gerar Nova Ideia
-                    </button>
+            <div className="pt-6 border-t border-slate-700">
+                <h3 className="text-md font-semibold text-slate-300 mb-3">Adicionar Novo Perfil</h3>
+                <div className="space-y-4">
+                    <input
+                        type="text"
+                        value={newProfileName}
+                        onChange={(e) => setNewProfileName(e.target.value)}
+                        placeholder="Nome do Perfil (Ex: Meu Blog)"
+                        className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                    <input
+                        type="url"
+                        value={newProfileUrl}
+                        onChange={(e) => setNewProfileUrl(e.target.value)}
+                        placeholder="URL do Perfil (Ex: https://meublog.com)"
+                        className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                    {profileError && <p className="text-sm text-red-400">{profileError}</p>}
                     <button
-                        onClick={handleUseInspiration}
-                        disabled={!generatedInspiration}
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-700 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                        onClick={handleAddProfile}
+                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-fuchsia-500"
                     >
-                        Usar esta Ideia ✨
+                        Salvar Perfil
                     </button>
                 </div>
-            )}
+            </div>
         </div>
     </Modal>
-    </>
+    </form>
   );
 };

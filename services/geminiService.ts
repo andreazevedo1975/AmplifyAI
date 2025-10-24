@@ -520,6 +520,50 @@ export const suggestHashtags = async (baseHashtags: string, platform: string): P
   }
 };
 
+export const generateScriptFromPost = async (theme: string, caption: string): Promise<string> => {
+  const prompt = `
+    Você é um roteirista especialista em transformar posts de redes sociais em vídeos curtos e dinâmicos (como Reels ou TikTok).
+    Sua tarefa é criar um roteiro detalhado para um vídeo com base no tema e na legenda de um post existente.
+
+    **Tema do Post:**
+    "${theme}"
+
+    **Legenda Original do Post:**
+    """
+    ${caption}
+    """
+
+    **Instruções para o Roteiro:**
+    1.  **Estrutura Clara:** O roteiro deve ser dividido em seções claras e prontas para gravação. Use a seguinte estrutura:
+        -   **GANCHO VISUAL E FALADO (Primeiros 3 segundos):** Descreva uma cena de abertura e a primeira frase que prenda a atenção imediatamente.
+        -   **DESENVOLVIMENTO (Conteúdo Principal):** Transforme os pontos principais da legenda em 2 a 4 cenas curtas. Para cada cena, descreva a sugestão visual (o que mostrar na tela) e a narração correspondente.
+        -   **CTA (Chamada para Ação):** Termine com uma chamada para ação clara e uma sugestão de cena final. Incentive o engajamento (comentar, seguir, etc.).
+    2.  **Linguagem Dinâmica:** Adapte a linguagem da legenda para um formato falado, mais direto e conversacional.
+    3.  **Foco no Visual:** Dê sugestões visuais simples e impactantes para cada parte do roteiro.
+
+    Retorne APENAS o texto do roteiro, bem estruturado e pronto para ser lido. Não inclua nenhuma introdução ou texto extra.
+  `;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error("[SAFETY_BLOCK] A geração do roteiro a partir do post foi bloqueada por motivos de segurança.");
+    }
+
+    return response.text.trim();
+  } catch (error) {
+    console.error("Erro ao gerar roteiro a partir do post:", error);
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar o roteiro para o vídeo a partir do post.");
+  }
+};
+
 export const generateVideoScript = async (title: string, description:string): Promise<string> => {
   const prompt = `
     Você é um roteirista de vídeos para o YouTube e especialista em conteúdo digital.
@@ -646,5 +690,46 @@ export const generateVideoFromPrompt = async (prompt: string, imageBase64?: stri
     if (commonError) throw commonError;
     
     throw new Error("[VIDEO_GEN_ERROR] Falha ao gerar o clipe de vídeo.");
+  }
+};
+
+export const suggestImageOptimization = async (theme: string): Promise<string> => {
+  const validFilters = ['vintage', 'vibrant', 'cinematic', 'bw', 'dramatic', 'none'];
+  const prompt = `
+    Analise o seguinte tema de post: "${theme}".
+    Com base no sentimento e no conteúdo do tema, qual dos seguintes filtros de imagem seria mais apropriado?
+    - vintage: Para temas nostálgicos, históricos ou clássicos.
+    - vibrant: Para temas de viagem, comida, celebrações ou natureza.
+    - cinematic: Para temas com um tom mais sério, inspirador ou dramático.
+    - bw: Para fotografia de rua, retratos artísticos ou temas sombrios (preto e branco).
+    - dramatic: Para temas de ação, esportes ou paisagens épicas, com alto contraste.
+    - none: Se nenhum filtro parecer adequado.
+
+    Sua resposta deve ser APENAS UMA PALAVRA da lista acima. Não inclua nenhuma outra explicação ou formatação.
+    Exemplo de resposta: vintage
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error("[SAFETY_BLOCK] A sugestão de filtro foi bloqueada por motivos de segurança.");
+    }
+    
+    const filter = response.text.trim().toLowerCase();
+    if (validFilters.includes(filter)) {
+      return filter;
+    }
+    console.warn(`AI returned an invalid filter name: '${filter}'. Defaulting to 'none'.`);
+    return 'none'; // Default fallback
+  } catch (error) {
+    console.error("Erro ao sugerir otimização de imagem:", error);
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+    
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao sugerir otimização para a imagem.");
   }
 };

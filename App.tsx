@@ -11,7 +11,7 @@ import { generateImage, generateContentWithSearch, generateVideoScript, generate
 import { decodeAndCreateWavBlob } from './services/audioService';
 import { addPost, getAllPosts, deletePost, clearPosts, replaceAllPosts } from './services/dbService';
 import { saveHistoryToDrive, loadHistoryFromDrive } from './services/googleDriveService';
-import type { PostData, AppError, VideoOutputData, AudioOutputData, DriveStatus } from './types';
+import type { PostData, AppError, VideoOutputData, AudioOutputData, DriveStatus, GenerateOptions } from './types';
 import { TestModeFooter } from './components/TestModeFooter';
 
 const App: React.FC = () => {
@@ -60,23 +60,7 @@ const App: React.FC = () => {
         }, 100);
     };
 
-    const handleGenerate = async (options: {
-        mode: 'post' | 'video' | 'script' | 'audio';
-        theme: string;
-        imageInput: string;
-        platform: string;
-        profileUrl: string;
-        thinkingMode: boolean;
-        creativityMode: boolean;
-        focusMode: boolean;
-        tone: string;
-        scriptTitle?: string;
-        scriptDescription?: string;
-        audioText?: string;
-        audioVoice?: string;
-        audioEmotion?: string;
-        audioStyle?: string;
-    }) => {
+    const handleGenerate = async (options: GenerateOptions) => {
         setIsLoading(true);
         setError(null);
         setGeneratedPost(null);
@@ -114,7 +98,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleGeneratePost = async (options: any) => {
+    const handleGeneratePost = async (options: GenerateOptions) => {
         let imageUrl = '';
         if (options.imageInput) {
             try {
@@ -156,7 +140,7 @@ const App: React.FC = () => {
         setHistory(prev => [newPost, ...prev]);
     };
     
-    const handleGenerateVideo = async (options: any) => {
+    const handleGenerateVideo = async (options: GenerateOptions) => {
         let imagePayload: { base64: string, mimeType: string } | undefined = undefined;
         if (options.imageInput) {
             try {
@@ -212,7 +196,10 @@ const App: React.FC = () => {
         setGeneratedVideo(newVideoOutput);
     };
 
-    const handleGenerateScript = async (options: any) => {
+    const handleGenerateScript = async (options: GenerateOptions) => {
+        if (!options.scriptTitle || !options.scriptDescription) {
+            throw new Error("Título e descrição do roteiro são necessários.");
+        }
         const script = await generateVideoScript(options.scriptTitle, options.scriptDescription);
         setGeneratedScript({
             title: options.scriptTitle,
@@ -220,7 +207,10 @@ const App: React.FC = () => {
         });
     };
 
-    const handleGenerateAudio = async (options: any) => {
+    const handleGenerateAudio = async (options: GenerateOptions) => {
+        if (!options.audioText || !options.audioVoice || !options.audioEmotion || !options.audioStyle) {
+            throw new Error("Texto, voz, emoção e estilo do áudio são necessários.");
+        }
         const base64Audio = await generateAudioFromText(options.audioText, options.audioVoice, options.audioEmotion, options.audioStyle);
         const audioBlob = await decodeAndCreateWavBlob(base64Audio);
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -316,7 +306,7 @@ const App: React.FC = () => {
     };
 
     const handleRegenerate = (post: PostData) => {
-        const options = {
+        const options: GenerateOptions = {
             mode: 'post' as const,
             theme: post.theme,
             imageInput: post.imageUrl,

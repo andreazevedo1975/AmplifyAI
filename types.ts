@@ -50,3 +50,21 @@ export interface ToneProfile {
   description: string;
   examples: string;
 }
+
+export interface GenerateOptions {
+  mode: 'post' | 'video' | 'script' | 'audio';
+  theme: string;
+  imageInput: string;
+  platform: string;
+  profileUrl: string;
+  thinkingMode: boolean;
+  creativityMode: boolean;
+  focusMode: boolean;
+  tone: string;
+  scriptTitle?: string;
+  scriptDescription?: string;
+  audioText?: string;
+  audioVoice?: string;
+  audioEmotion?: string;
+  audioStyle?: string;
+}

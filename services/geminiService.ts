@@ -473,46 +473,38 @@ export const suggestHashtags = async (baseHashtags: string, platform: string): P
     1. Hashtags de tendência (trending topics) relacionadas ao tema.
     2. Palavras-chave mais específicas ou de nicho para atingir um público focado.
     3. Hashtags de comunidade ou eventos, se aplicável.
-
-    Retorne sua resposta EXCLUSIVAMENTE como um array JSON de strings, sem nenhum texto, explicação ou formatação adicional.
-    Cada string no array deve começar com '#'.
-
-    Exemplo de saída:
-    [
-      "#novatendencia",
-      "#dicaespecifica",
-      "#comunidadeonline",
-      "#evento2024"
-    ]
+    
+    Cada hashtag sugerida deve começar com '#'.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.STRING,
+            description: "Uma hashtag relevante começando com '#'"
+          }
+        }
+      }
     });
     
     if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
         throw new Error("[SAFETY_BLOCK] A sugestão de hashtags foi bloqueada por motivos de segurança.");
     }
 
-    const text = response.text.trim();
-    const startIndex = text.indexOf('[');
-    const endIndex = text.lastIndexOf(']');
-
-    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-      const jsonString = text.substring(startIndex, endIndex + 1);
-      try {
-        const suggestions: string[] = JSON.parse(jsonString);
-        return suggestions.filter(tag => typeof tag === 'string' && tag.startsWith('#'));
-      } catch (e) {
-        console.error("Erro ao fazer parse do JSON de sugestão de hashtag:", e, "String tentada:", jsonString);
-        throw new Error("[FORMAT_ERROR] A IA não retornou as sugestões no formato JSON esperado.");
-      }
+    const jsonString = response.text.trim();
+    try {
+      const suggestions: string[] = JSON.parse(jsonString);
+      return suggestions.filter(tag => typeof tag === 'string' && tag.startsWith('#'));
+    } catch (e) {
+      console.error("Erro ao fazer parse do JSON de sugestão de hashtag:", e, "String tentada:", jsonString);
+      throw new Error("[FORMAT_ERROR] A IA não retornou as sugestões no formato JSON esperado.");
     }
-    
-    throw new Error("[FORMAT_ERROR] A IA não retornou as sugestões no formato esperado.");
-
   } catch (error) {
     console.error("Erro ao sugerir hashtags:", error);
     const commonError = handleCommonErrors(error);
@@ -706,7 +698,7 @@ export const suggestImageOptimization = async (theme: string): Promise<string> =
     - dramatic: Para temas de ação, esportes ou paisagens épicas, com alto contraste.
     - none: Se nenhum filtro parecer adequado.
 
-    Sua resposta deve ser APENAS UMA PALAVRA da lista acima. Não inclua nenhuma outra explicação ou formatação.
+    Sua resposta DEVE SER APENAS UMA ÚNICA PALAVRA da lista acima. NÃO inclua nenhuma outra explicação ou formatação.
     Exemplo de resposta: vintage
   `;
 
@@ -720,11 +712,14 @@ export const suggestImageOptimization = async (theme: string): Promise<string> =
         throw new Error("[SAFETY_BLOCK] A sugestão de filtro foi bloqueada por motivos de segurança.");
     }
     
-    const filter = response.text.trim().toLowerCase();
-    if (validFilters.includes(filter)) {
-      return filter;
+    const text = response.text.trim().toLowerCase();
+    for (const validFilter of validFilters) {
+        if (text.includes(validFilter)) {
+            return validFilter;
+        }
     }
-    console.warn(`AI returned an invalid filter name: '${filter}'. Defaulting to 'none'.`);
+    
+    console.warn(`AI returned an invalid filter name: '${text}'. Defaulting to 'none'.`);
     return 'none'; // Default fallback
   } catch (error) {
     console.error("Erro ao sugerir otimização de imagem:", error);

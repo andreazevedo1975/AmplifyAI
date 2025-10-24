@@ -8,27 +8,11 @@ import { Modal } from './Modal';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { ManageAccountsIcon } from './icons/ManageAccountsIcon';
 import { TrashIcon } from './icons/TrashIcon';
-import type { ToneProfile } from '../types';
+import type { ToneProfile, GenerateOptions } from '../types';
 
 
 interface InputFormProps {
-  onGenerate: (options: {
-      mode: 'post' | 'video' | 'script' | 'audio';
-      theme: string;
-      imageInput: string;
-      platform: string;
-      profileUrl: string;
-      thinkingMode: boolean;
-      creativityMode: boolean;
-      focusMode: boolean;
-      tone: string;
-      scriptTitle?: string;
-      scriptDescription?: string;
-      audioText?: string;
-      audioVoice?: string;
-      audioEmotion?: string;
-      audioStyle?: string;
-  }) => void;
+  onGenerate: (options: GenerateOptions) => void;
   isLoading: boolean;
 }
 

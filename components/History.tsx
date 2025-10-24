@@ -3,6 +3,7 @@ import type { PostData } from '../types';
 import { TrashIcon } from './icons/TrashIcon';
 import { RegenerateIcon } from './icons/RegenerateIcon';
 import { EyeIcon } from './icons/EyeIcon';
+import { EmptyHistoryIllustration } from './illustrations/EmptyHistoryIllustration';
 
 interface HistoryProps {
   items: PostData[];
@@ -15,9 +16,12 @@ interface HistoryProps {
 export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onRegenerate, onClear }) => {
   if (items.length === 0) {
     return (
-      <div className="text-center py-10 border-t border-slate-700 mt-12">
-        <h2 className="text-xl font-bold text-slate-400 mb-2">Histórico de Posts</h2>
-        <p className="text-slate-500">Seu histórico de posts gerados aparecerá aqui.</p>
+      <div className="text-center py-16 border-t border-slate-700 mt-12 flex flex-col items-center">
+        <EmptyHistoryIllustration />
+        <h2 className="text-xl font-bold text-slate-400 mt-6 mb-2">Seu histórico está vazio</h2>
+        <p className="text-slate-500 max-w-sm">
+          Quando você gerar seu primeiro post, ele aparecerá aqui para você visualizar, editar ou reutilizar.
+        </p>
       </div>
     );
   }

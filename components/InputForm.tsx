@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
-import { generateImage } from '../services/geminiService';
+import { generateImage, generateInspirationalIdea } from '../services/geminiService';
 import { Spinner } from './Spinner';
 import { CloseIcon } from './icons/CloseIcon';
+import { Modal } from './Modal';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 
 interface InputFormProps {
@@ -88,6 +90,13 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     status: 'idle' | 'valid' | 'invalid' | 'warning';
     message: string | null;
   }>({ status: 'idle', message: null });
+  
+  // New states for the inspiration modal
+  const [isInspirationModalOpen, setIsInspirationModalOpen] = useState(false);
+  const [inspirationCategory, setInspirationCategory] = useState<'quote' | 'story' | 'reflection' | null>(null);
+  const [generatedInspiration, setGeneratedInspiration] = useState('');
+  const [isInspirationLoading, setIsInspirationLoading] = useState(false);
+  const [inspirationError, setInspirationError] = useState<string | null>(null);
 
   const isUrl = (text: string): boolean => {
     try {
@@ -130,9 +139,41 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     if (imageInput && isUrl(imageInput)) {
       setPreviewUrl(imageInput);
       setPreviewError(null);
-      // We don't set loading true here, the browser handles it.
-      // Error handling is done on the <img> tag itself.
     }
+  };
+
+  const handleGenerateInspiration = async (category: 'quote' | 'story' | 'reflection') => {
+    setInspirationCategory(category);
+    setIsInspirationLoading(true);
+    setGeneratedInspiration('');
+    setInspirationError(null);
+    try {
+      const idea = await generateInspirationalIdea(category);
+      setGeneratedInspiration(idea);
+    } catch (error) {
+      setInspirationError(error instanceof Error ? error.message : "Falha ao buscar inspiração.");
+    } finally {
+      setIsInspirationLoading(false);
+    }
+  };
+
+  const handleUseInspiration = () => {
+    if (generatedInspiration) {
+      setTheme(generatedInspiration);
+    }
+    setIsInspirationModalOpen(false);
+  };
+
+  const resetInspirationModal = () => {
+      setInspirationCategory(null);
+      setGeneratedInspiration('');
+      setIsInspirationLoading(false);
+      setInspirationError(null);
+  };
+  
+  const handleOpenInspirationModal = () => {
+    resetInspirationModal();
+    setIsInspirationModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,8 +202,6 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         
         let imageUrl = previewUrl;
         
-        // If user entered a valid URL, it's already set as previewUrl on blur.
-        // If we don't have a URL, we must generate one from a prompt (or empty input).
         if (!imageUrl) {
             setIsAutoGeneratingImage(true);
             setPreviewError(null);
@@ -181,7 +220,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                     setPreviewError("Não foi possível gerar a imagem automaticamente. Tente novamente.");
                 }
                 setIsAutoGeneratingImage(false);
-                return; // Stop submission on image generation failure
+                return; 
             } finally {
                 setIsAutoGeneratingImage(false);
             }
@@ -232,6 +271,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="bg-slate-800/60 p-6 rounded-lg shadow-lg space-y-6 border border-slate-700">
       
       <div>
@@ -295,9 +335,21 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       ) : (
       <>
         <div>
-          <label htmlFor="theme" className="block text-sm font-semibold text-slate-300 mb-2">
-            1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
-          </label>
+           <div className="flex justify-between items-center mb-2">
+            <label htmlFor="theme" className="block text-sm font-semibold text-slate-300">
+              1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
+            </label>
+            {mode === 'post' && (
+              <button 
+                type="button" 
+                onClick={handleOpenInspirationModal}
+                className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full text-fuchsia-300 bg-fuchsia-900/40 hover:bg-fuchsia-900/70 transition-colors"
+              >
+                <SparklesIcon />
+                <span>Buscar Inspiração</span>
+              </button>
+            )}
+          </div>
           <textarea
             id="theme"
             rows={3}
@@ -609,5 +661,50 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
             'Gerar Roteiro com IA 📝'}
       </button>
     </form>
+    <Modal
+        isOpen={isInspirationModalOpen}
+        onClose={() => setIsInspirationModalOpen(false)}
+        title="Encontre sua Inspiração"
+    >
+        <div className="space-y-6">
+            <div>
+                <p className="text-slate-400 mb-4">Selecione uma categoria para a IA gerar uma ideia. A ideia gerada preencherá o campo principal do formulário.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button onClick={() => handleGenerateInspiration('quote')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'quote' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>Citação Motivacional</button>
+                    <button onClick={() => handleGenerateInspiration('story')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'story' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>História de Sucesso</button>
+                    <button onClick={() => handleGenerateInspiration('reflection')} className={`p-4 rounded-lg text-center font-semibold transition-colors border-2 ${inspirationCategory === 'reflection' ? 'bg-fuchsia-900/50 border-fuchsia-500 text-fuchsia-300' : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>Momento de Reflexão</button>
+                </div>
+            </div>
+
+            {(isInspirationLoading || generatedInspiration || inspirationError) && (
+                <div className="bg-slate-900/50 p-6 rounded-lg border border-slate-700 min-h-[150px] flex items-center justify-center">
+                    {isInspirationLoading && <Spinner />}
+                    {inspirationError && <p className="text-red-400 text-center">{inspirationError}</p>}
+                    {generatedInspiration && !isInspirationLoading && (
+                        <p className="text-lg text-slate-200 text-center font-medium animate-fade-in">"{generatedInspiration}"</p>
+                    )}
+                </div>
+            )}
+            
+            {(generatedInspiration || inspirationError) && !isInspirationLoading && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                        onClick={() => inspirationCategory && handleGenerateInspiration(inspirationCategory)}
+                        className="w-full flex justify-center py-3 px-4 border border-slate-600 rounded-lg shadow-sm text-sm font-semibold text-slate-200 bg-slate-700/50 hover:bg-slate-700 transition-colors"
+                    >
+                        Gerar Nova Ideia
+                    </button>
+                    <button
+                        onClick={handleUseInspiration}
+                        disabled={!generatedInspiration}
+                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-fuchsia-600 hover:bg-fuchsia-700 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                    >
+                        Usar esta Ideia ✨
+                    </button>
+                </div>
+            )}
+        </div>
+    </Modal>
+    </>
   );
 };

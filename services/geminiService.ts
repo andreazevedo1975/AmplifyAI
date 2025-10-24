@@ -335,6 +335,65 @@ export const generateContentWithSearch = async (theme: string, platform: string,
   }
 };
 
+export const generateInspirationalIdea = async (category: 'quote' | 'story' | 'reflection'): Promise<string> => {
+  let prompt = '';
+  switch (category) {
+    case 'quote':
+      prompt = `
+        Gere uma citação motivacional curta e impactante sobre um dos seguintes temas: sucesso, perseverança, inovação, criatividade ou crescimento pessoal.
+        **REGRAS:**
+        - A citação deve ter no máximo 25 palavras.
+        - Retorne APENAS o texto da citação, sem aspas, sem atribuição de autor e sem qualquer outra formatação ou texto introdutório.
+
+        **Exemplo de Saída:**
+        A única maneira de fazer um excelente trabalho é amar o que você faz.
+      `;
+      break;
+    case 'story':
+      prompt = `
+        Gere uma ideia para uma breve história de sucesso, em uma única frase. A história deve ser sobre superação de desafios, inovação ou impacto positivo.
+        **REGRAS:**
+        - A frase deve ser concisa e inspiradora.
+        - Retorne APENAS a frase que descreve a ideia da história, sem qualquer outra formatação ou texto introdutório.
+
+        **Exemplo de Saída:**
+        Um inventor que transformou seu maior fracasso na base para uma tecnologia que mudou o mundo.
+      `;
+      break;
+    case 'reflection':
+      prompt = `
+        Gere um pensamento ou uma pergunta curta para um momento de reflexão sobre crescimento pessoal, propósito ou gratidão.
+        **REGRAS:**
+        - O texto deve ser conciso e introspectivo.
+        - Retorne APENAS o texto da reflexão, sem qualquer outra formatação ou texto introdutório.
+
+        **Exemplo de Saída:**
+        Qual pequeno passo você pode dar hoje para se aproximar da pessoa que deseja ser amanhã?
+      `;
+      break;
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error("A geração de ideia foi bloqueada por motivos de segurança.");
+    }
+
+    return response.text.trim().replace(/"/g, ''); // Remove any quotes the model might add
+  } catch (error) {
+    console.error("Erro ao gerar ideia inspiradora:", error);
+    const errorString = String(error).toLowerCase();
+    if (errorString.includes('safety')) {
+        throw new Error("A solicitação de ideia foi bloqueada pelas políticas de segurança da IA.");
+    }
+    throw new Error("Falha ao gerar a ideia inspiradora.");
+  }
+};
+
 export const generatePostVariation = async (theme: string, platform: string, tone: string, originalCaption: string): Promise<GeneratedContent> => {
   const specifics = getPlatformSpecifics(platform);
 

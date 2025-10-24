@@ -584,33 +584,41 @@ export const generateVideoScript = async (title: string, description:string): Pr
   }
 };
 
+// FIX: Add and export the missing 'generateAudioFromScript' function to generate audio from a script.
 export const generateAudioFromScript = async (script: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: script }] }],
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{parts: [{text: script}]}],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' }, // A calm, clear male voice
+            // Using a neutral, clear voice. Other options: 'Puck', 'Charon', 'Fenrir', 'Zephyr'
+            prebuiltVoiceConfig: {voiceName: 'Kore'},
           },
         },
       },
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-      throw new Error("[AUDIO_GEN_ERROR] A IA não retornou dados de áudio.");
+    const base64Audio =
+      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (base64Audio) {
+      return base64Audio;
+    } else {
+      throw new Error(
+        '[AUDIO_GEN_ERROR] Nenhum áudio foi gerado. A resposta da API estava vazia.',
+      );
     }
-    return base64Audio;
-  } catch(error) {
-    console.error("Erro ao gerar áudio:", error);
+  } catch (error) {
+    console.error('Erro ao gerar áudio do roteiro:', error);
     const errorString = String(error).toLowerCase();
     if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] A solicitação de áudio foi bloqueada pelas políticas de segurança da IA.");
+      throw new Error(
+        '[SAFETY_BLOCK] A solicitação de áudio foi bloqueada pelas políticas de segurança da IA.',
+      );
     }
-    throw new Error("[AUDIO_GEN_ERROR] Falha ao gerar a narração de áudio.");
+    throw new Error('[AUDIO_GEN_ERROR] Falha ao gerar o áudio para o roteiro.');
   }
 };
 

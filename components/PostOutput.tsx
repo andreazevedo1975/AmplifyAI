@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { PostData } from '../types';
+import type { PostData, VideoOutputData } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
 import { SaveIcon } from './icons/SaveIcon';
 import { jsPDF } from 'jspdf';
@@ -20,6 +20,8 @@ import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
 import { RegenerateIcon } from './icons/RegenerateIcon';
 import { UseIcon } from './icons/UseIcon';
+import { Spinner } from './Spinner';
+import { VideoOutput } from './VideoOutput';
 
 // Helper to convert any image URL (including data URLs) to a base64 string without prefix
 async function imageUrlToBase64(url: string): Promise<string> {
@@ -79,11 +81,18 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [variations, setVariations] = useState<{ caption: string; hashtags: string }[] | null>(null);
   const [isGeneratingVariations, setIsGeneratingVariations] = useState<boolean>(false);
   const [variationsError, setVariationsError] = useState<string | null>(null);
+
+  // State for video generation from post
+  const [generatedVideo, setGeneratedVideo] = useState<VideoOutputData | null>(null);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoError, setVideoError] = useState<{title: string; message: string; suggestion?: string} | null>(null);
   
   useEffect(() => {
     setCurrentPost(data);
     setVariations(null);
     setVariationsError(null);
+    setGeneratedVideo(null);
+    setVideoError(null);
   }, [data]);
 
 
@@ -286,4 +295,146 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       alert("Falha ao gerar o DOCX.");
     } finally {
       setIsDownloadingDocx(false);
-    
+    }
+  };
+
+  const handleGenerateVideoFromPost = async () => {
+    setIsGeneratingVideo(true);
+    setVideoError(null);
+    setGeneratedVideo(null);
+
+    try {
+        // @ts-ignore
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+            // @ts-ignore
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                setVideoError({
+                    title: 'Chave de API Necessária',
+                    message: 'Para gerar um vídeo, você precisa primeiro selecionar uma chave de API.',
+                    suggestion: 'A janela de seleção de chave será aberta. Por favor, escolha uma chave e tente novamente.'
+                });
+                setTimeout(() => {
+                    // @ts-ignore
+                    window.aistudio.openSelectKey();
+                }, 2500);
+                setIsGeneratingVideo(false);
+                return;
+            }
+        }
+
+        const imageBase64 = await imageUrlToBase64(currentPost.imageUrl);
+        const videoBlob = await generateVideoFromPrompt(currentPost.theme, imageBase64);
+        const videoUrl = URL.createObjectURL(videoBlob);
+        
+        const newVideoOutput: VideoOutputData = {
+            url: videoUrl,
+            theme: currentPost.theme,
+            platform: currentPost.platform,
+        };
+
+        setGeneratedVideo(newVideoOutput);
+
+    } catch (err) {
+        console.error("Video generation from post failed:", err);
+        const errorMessage = (err as Error).message || "Ocorreu um erro desconhecido.";
+        if (errorMessage.includes('VEO_KEY_ERROR')) {
+             setVideoError({
+                title: 'Chave de API de Vídeo Inválida',
+                message: 'A chave de API selecionada não foi encontrada ou não tem permissão para usar a geração de vídeo.',
+                suggestion: 'Por favor, selecione uma chave de API válida e tente novamente.'
+            });
+        } else {
+            setVideoError({
+                title: 'Falha na Geração do Vídeo',
+                message: 'Não foi possível gerar o vídeo a partir do post.',
+                suggestion: 'Verifique sua conexão e tente novamente. O serviço pode estar indisponível.'
+            });
+        }
+    } finally {
+        setIsGeneratingVideo(false);
+    }
+};
+
+  return (
+    <>
+        <div className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
+            <h2 className="text-2xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">Post Gerado para {data.platform}</h2>
+            <p className="text-center text-slate-400 mb-6 text-sm">Tema: {data.theme}</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div className="aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-lg">
+                    <img src={currentPost.imageUrl} alt={`Imagem para ${currentPost.theme}`} className="w-full h-full object-cover" />
+                </div>
+
+                <div className="flex flex-col space-y-4 h-full">
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Legenda</h3>
+                            <button onClick={() => handleCopy(currentPost.caption, 'caption')} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200">
+                            <CopyIcon /> {copied === 'caption' ? 'Copiado!' : 'Copiar'}
+                            </button>
+                        </div>
+                        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 max-h-60 overflow-y-auto custom-scrollbar">
+                            <p className="text-slate-200 whitespace-pre-wrap">{currentPost.caption}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Hashtags</h3>
+                            <button onClick={() => handleCopy(currentPost.hashtags, 'hashtags')} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200">
+                            <CopyIcon /> {copied === 'hashtags' ? 'Copiado!' : 'Copiar'}
+                            </button>
+                        </div>
+                        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
+                            <p className="text-fuchsia-400 break-words">{currentPost.hashtags}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div className="mt-8 pt-6 border-t border-slate-700/50">
+                <h3 className="text-center font-bold text-slate-300 mb-4">Opções de Exportação e Ações</h3>
+                <div className="flex flex-wrap justify-center gap-3">
+                    <button onClick={handleSavePost} disabled={isSaving} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                        <SaveIcon /> {saveButtonText}
+                    </button>
+                    <button onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                        {isDownloadingPdf ? <Spinner/> : <PdfIcon />} Salvar .pdf
+                    </button>
+                    <button onClick={handleDownloadDocx} disabled={isDownloadingDocx} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                        {isDownloadingDocx ? <Spinner/> : <DocxIcon />} Salvar .docx
+                    </button>
+                    <button 
+                        onClick={handleGenerateVideoFromPost} 
+                        disabled={isGeneratingVideo} 
+                        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-cyan-600/30 hover:bg-cyan-600/50 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                    >
+                        {isGeneratingVideo ? <Spinner/> : <VideoIcon />}
+                        {isGeneratingVideo ? 'Gerando Vídeo...' : 'Criar Vídeo do Post'}
+                    </button>
+                </div>
+            </div>
+
+        </div>
+        {videoError && (
+            <div className="mt-8 p-6 rounded-2xl flex items-start space-x-4 animate-fade-in bg-red-900/30 border border-red-500/50">
+                <div className="text-red-400 flex-shrink-0 pt-1">
+                    <WarningIcon />
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-red-300">{videoError.title}</h3>
+                    <p className="text-red-400 mt-1">{videoError.message}</p>
+                    {videoError.suggestion && <p className="text-sm text-slate-300 mt-3"><strong className="font-semibold">Sugestão:</strong> {videoError.suggestion}</p>}
+                </div>
+            </div>
+        )}
+        {generatedVideo && (
+            <div className="mt-8">
+                <VideoOutput data={generatedVideo} />
+            </div>
+        )}
+    </>
+  );
+};

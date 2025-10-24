@@ -8,11 +8,21 @@ interface AudioOutputProps {
 }
 
 const voiceNameMap: { [key: string]: string } = {
+  // Feminino
   'Kore': 'Kore (Feminino, Calmo)',
   'Charon': 'Charon (Feminino, Grave)',
+  'Lyra': 'Lyra (Feminino, Agudo)',
+  'Aura': 'Aura (Feminino, Neutro)',
+  'Elara': 'Elara (Feminino, Enérgico)',
+  'Nyx': 'Nyx (Feminino, Profundo)',
+  // Masculino
   'Zephyr': 'Zephyr (Masculino, Calmo)',
   'Puck': 'Puck (Masculino, Enérgico)',
   'Fenrir': 'Fenrir (Masculino, Grave)',
+  'Leo': 'Leo (Masculino, Profundo)',
+  'Orion': 'Orion (Masculino, Neutro)',
+  'Caelus': 'Caelus (Masculino, Agudo)',
+  'Atlas': 'Atlas (Masculino, Neutro)',
 };
 
 

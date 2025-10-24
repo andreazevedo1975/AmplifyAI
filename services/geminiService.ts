@@ -563,7 +563,7 @@ export const generateVideoScript = async (title: string, description:string): Pr
 };
 
 export const generateAudioFromText = async (text: string, voice: string, emotion: string, style: string): Promise<string> => {
-  const descriptivePrompt = `Fale de forma ${style} e em um tom ${emotion}: ${text}`;
+  const descriptivePrompt = `Fale em português brasileiro, de forma ${style} e em um tom ${emotion}: ${text}`;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-preview-tts',

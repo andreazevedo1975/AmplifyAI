@@ -57,11 +57,21 @@ const toneOptions = [
 ];
 
 const voiceOptions = [
+  // Feminino
   { id: 'Kore', name: 'Kore (Feminino, Calmo)' },
   { id: 'Charon', name: 'Charon (Feminino, Grave)' },
+  { id: 'Lyra', name: 'Lyra (Feminino, Agudo)' },
+  { id: 'Aura', name: 'Aura (Feminino, Neutro)' },
+  { id: 'Elara', name: 'Elara (Feminino, Enérgico)' },
+  { id: 'Nyx', name: 'Nyx (Feminino, Profundo)' },
+  // Masculino
   { id: 'Zephyr', name: 'Zephyr (Masculino, Calmo)' },
   { id: 'Puck', name: 'Puck (Masculino, Enérgico)' },
   { id: 'Fenrir', name: 'Fenrir (Masculino, Grave)' },
+  { id: 'Leo', name: 'Leo (Masculino, Profundo)' },
+  { id: 'Orion', name: 'Orion (Masculino, Neutro)' },
+  { id: 'Caelus', name: 'Caelus (Masculino, Agudo)' },
+  { id: 'Atlas', name: 'Atlas (Masculino, Neutro)' },
 ];
 
 const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];

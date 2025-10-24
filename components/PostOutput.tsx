@@ -153,7 +153,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [finalVideoBlob, setFinalVideoBlob] = useState<Blob | null>(null);
   const [isPublishingVideo, setIsPublishingVideo] = useState(false);
   
-  const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(false);
+  const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(true);
   
   const [currentPost, setCurrentPost] = useState<PostData>(data);
   const [variations, setVariations] = useState<{ caption: string; hashtags: string }[] | null>(null);
@@ -161,16 +161,13 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [variationsError, setVariationsError] = useState<string | null>(null);
   
   useEffect(() => {
-    // When the component receives a new post (e.g., from history), update the local state
     setCurrentPost(data);
-    // Also reset variations if the post changes
     setVariations(null);
     setVariationsError(null);
   }, [data]);
 
 
   useEffect(() => {
-    // Check for VEO key when the component mounts or data changes to a YouTube post
     if (currentPost.platform === 'YouTube') {
       // @ts-ignore
       if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
@@ -196,7 +193,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     const fullText = `${currentPost.caption}\n\n${currentPost.hashtags}`;
 
     try {
-      // 1. Download Image
       const response = await fetch(currentPost.imageUrl);
        if (!response.ok) {
         throw new Error(`Falha ao buscar imagem: ${response.statusText}`);
@@ -215,10 +211,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      // 2. Copy Text
       await navigator.clipboard.writeText(fullText);
 
-      // 3. Update UI
       setSaveButtonText('Salvo! Texto copiado.');
 
     } catch (error) {
@@ -226,7 +220,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       alert('Não foi possível salvar o post. Verifique o console para mais detalhes.');
       setSaveButtonText('Erro ao Salvar');
     } finally {
-       // 4. Reset button after a delay
       setTimeout(() => {
         setIsSaving(false);
         setSaveButtonText('Salvar Post');
@@ -242,16 +235,13 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         const margin = 15;
         const max_width = page_width - margin * 2;
         
-        // --- Title ---
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.text("Post Gerado por AmplifyAI", page_width / 2, 20, { align: 'center' });
 
-        // --- Theme ---
         doc.setFontSize(14);
         doc.text(`Tema: ${currentPost.theme}`, margin, 35);
         
-        // --- Image ---
         const response = await fetch(currentPost.imageUrl);
         const blob = await response.blob();
         const imgData = await new Promise<string>((resolve, reject) => {
@@ -274,7 +264,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         doc.addImage(imgData, 'JPEG', margin, 45, imgWidth, imgHeight);
         let currentY = 45 + imgHeight + 15;
 
-        // --- Caption ---
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
         doc.text("Legenda:", margin, currentY);
@@ -286,7 +275,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         doc.text(captionLines, margin, currentY);
         currentY += (captionLines.length * 5) + 10;
         
-        // --- Hashtags ---
         if (currentPost.hashtags) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
@@ -294,7 +282,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
             currentY += 7;
 
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(0, 102, 204); // Blue color for hashtags
+            doc.setTextColor(0, 102, 204);
             const hashtagLines = doc.splitTextToSize(currentPost.hashtags, max_width);
             doc.text(hashtagLines, margin, currentY);
         }
@@ -337,7 +325,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
             children: [new TextRun({ text: "Post Gerado por AmplifyAI", bold: true, size: 36 })],
             alignment: 'center',
           }),
-          new Paragraph({ text: "" }), // spacing
+          new Paragraph({ text: "" }),
           new Paragraph({
             children: [new TextRun({ text: "Tema: ", bold: true, size: 28 }), new TextRun({ text: currentPost.theme, size: 28 })],
           }),
@@ -389,8 +377,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     container.style.left = '-9999px';
     container.style.width = '1080px';
     container.style.padding = '40px';
-    container.style.backgroundColor = '#1e293b'; // slate-800
-    container.style.color = '#e2e8f0'; // slate-200
+    container.style.backgroundColor = '#1e293b';
+    container.style.color = '#e2e8f0';
     container.style.fontFamily = 'Inter, sans-serif';
     container.style.boxSizing = 'border-box';
 
@@ -416,7 +404,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         const hashtags = document.createElement('p');
         hashtags.innerText = currentPost.hashtags;
         hashtags.style.fontSize = '20px';
-        hashtags.style.color = '#67e8f9'; // cyan-300
+        hashtags.style.color = '#67e8f9';
         hashtags.style.wordBreak = 'break-word';
         hashtags.style.marginBottom = '40px';
         container.appendChild(hashtags);
@@ -426,7 +414,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     footer.innerText = 'Gerado por AmplifyAI';
     footer.style.fontSize = '18px';
     footer.style.textAlign = 'center';
-    footer.style.color = '#94a3b8'; // slate-400
+    footer.style.color = '#94a3b8';
     footer.style.opacity = '0.7';
 
     container.appendChild(footer);
@@ -469,20 +457,14 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     try {
       const zip = new JSZip();
       
-      // 1. Fetch and add image
       const imageResponse = await fetch(currentPost.imageUrl);
       const imageBlob = await imageResponse.blob();
       const imageExtension = imageBlob.type.split('/')[1] || 'jpg';
       zip.file(`imagem.${imageExtension}`, imageBlob);
       
-      // 2. Add text content
       const textContent = `TEMA:\n${currentPost.theme}\n\nLEGENDA:\n${currentPost.caption}\n\nHASHTAGS:\n${currentPost.hashtags}`;
       zip.file("legenda_e_hashtags.txt", textContent);
       
-      // 3. Generate and add composite image (if handleSaveAsImage is adapted)
-      // This part is complex to do without re-rendering. We'll skip it for now and add a note.
-
-      // 4. Generate and download zip
       const zipBlob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(zipBlob);
@@ -492,7 +474,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
 
-      // 5. Open Google Drive and alert user
       setTimeout(() => {
         window.open('https://drive.google.com', '_blank');
         alert('Seu post foi salvo em um arquivo .zip! \n\nO Google Drive foi aberto em uma nova aba. Agora, basta arrastar o arquivo baixado para a janela do Drive para fazer o upload.');
@@ -512,7 +493,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   
     const textToShare = `${currentPost.caption}\n\n${currentPost.hashtags}`;
   
-    // Inner async function to handle the core logic and return a status
     const attemptShare = async (): Promise<'SHARED' | 'CANCELLED' | 'FALLBACK'> => {
       try {
         const response = await fetch(currentPost.imageUrl);
@@ -526,22 +506,21 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
             title: currentPost.theme,
             text: textToShare,
           });
-          return 'SHARED'; // Share was successful
+          return 'SHARED';
         }
-        return 'FALLBACK'; // Share API not supported
+        return 'FALLBACK';
       } catch (err) {
         if (err.name === 'AbortError') {
           console.log('Share was cancelled by the user.');
-          return 'CANCELLED'; // User explicitly cancelled the share
+          return 'CANCELLED';
         }
         console.error('Web Share API failed:', err);
-        return 'FALLBACK'; // Any other error should trigger the fallback
+        return 'FALLBACK';
       }
     };
   
     attemptShare().then(status => {
       if (status === 'FALLBACK') {
-        // Inform user and copy text before redirecting
         navigator.clipboard.writeText(textToShare);
         alert(`Seu navegador não suporta compartilhamento direto ou ocorreu um erro.\n\nO texto do post foi copiado para sua área de transferência para facilitar!\n\nRedirecionando para ${currentPost.platform}...`);
   
@@ -566,7 +545,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         window.open(url, '_blank', 'noopener,noreferrer');
       }
       
-      // For 'SHARED' or 'CANCELLED', the process is complete.
       setIsSharing(false);
     });
   };
@@ -649,6 +627,23 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       setIsGeneratingScript(false);
     }
   };
+  
+  const parseMediaError = (error: Error): string => {
+    const message = error.message || "Ocorreu um erro desconhecido na geração de mídia.";
+    if (message.includes('[VEO_KEY_ERROR]')) {
+        setIsVeoKeySelected(false);
+        // @ts-ignore
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+            // @ts-ignore
+            window.aistudio.openSelectKey();
+        }
+        return "Chave de API inválida. A janela de seleção foi reaberta. Por favor, escolha uma chave habilitada para a 'Generative AI API' e tente novamente.";
+    }
+    if (message.includes('[AUDIO_GEN_ERROR]')) return "Falha ao gerar a narração de áudio. Tente novamente.";
+    if (message.includes('[VIDEO_GEN_ERROR]')) return "Falha ao gerar o clipe de vídeo. A geração pode levar alguns minutos, tente novamente.";
+    if (message.includes('[SAFETY_BLOCK]')) return "A geração de mídia foi bloqueada por motivos de segurança.";
+    return "Falha ao gerar o vídeo completo. Por favor, verifique o console para mais detalhes e tente novamente.";
+  };
 
   const handleCreateFullVideo = async () => {
     if (!videoScript) {
@@ -656,7 +651,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         return;
     }
 
-    // Reset states for a new run
     setIsGeneratingMedia(true);
     setMediaGenerationStep('Iniciando processo...');
     setMediaError(null);
@@ -668,19 +662,16 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     setVideoBlob(null);
 
     try {
-        // Step 1: Generate Audio
         setMediaGenerationStep('Gerando narração de áudio...');
         const base64Audio = await generateAudioFromScript(videoScript);
         const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
         const audioBlobResult = bufferToWav(audioBuffer);
         
-        // Step 2: Generate Video
         setMediaGenerationStep('Gerando clipe de vídeo (pode levar alguns minutos)...');
         const imageBase64 = await imageUrlToBase64(currentPost.imageUrl);
         const videoBlobResult = await generateVideoFromPrompt(currentPost.theme, imageBase64);
         
-        // Step 3: Merge (with browser compatibility check)
         const videoCheckEl = document.createElement('video');
         // @ts-ignore
         const isCaptureStreamSupported = !!videoCheckEl.captureStream;
@@ -752,20 +743,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
     } catch (error) {
         console.error("Error generating full video:", error);
-        const errorMessage = error instanceof Error ? error.message : "Falha ao gerar o vídeo completo.";
-        
-        if (errorMessage.includes('[VEO_KEY_ERROR]')) {
-          setMediaError("Chave de API inválida. A janela de seleção foi reaberta. Por favor, escolha uma chave habilitada para a 'Generative AI API' em seu projeto e tente novamente.");
-          setIsVeoKeySelected(false);
-          // Proactively open the key selection dialog to streamline the fix.
-          // @ts-ignore
-          if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-              // @ts-ignore
-              window.aistudio.openSelectKey();
-          }
-        } else {
-            setMediaError(errorMessage);
-        }
+        setMediaError(parseMediaError(error as Error));
     } finally {
         setIsGeneratingMedia(false);
     }
@@ -778,7 +756,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       try {
         // @ts-ignore
         await window.aistudio.openSelectKey();
-        // Assume success to avoid race conditions and allow the user to try generating immediately.
         setIsVeoKeySelected(true);
         setMediaError(null);
       } catch (e) {
@@ -865,24 +842,23 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const isExternalUrl = currentPost.imageUrl.startsWith('http');
 
   return (
-    <div id="post-output-container" className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
-      <h2 className="text-xl font-bold mb-6 text-fuchsia-300 text-center">Seu post para {currentPost.platform} está pronto para ser amplificado!</h2>
-      
-      {/* Theme Section */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-slate-300 mb-2">TEMA PROPOSTO</h3>
-        <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+    <div id="post-output-container" className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
+      <h2 className="text-2xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-cyan-400 text-center">Seu post está pronto para ser amplificado!</h2>
+      <p className="text-center text-slate-400 mb-8">Conteúdo para {currentPost.platform}</p>
+
+      <div className="mb-8">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">TEMA PROPOSTO</h3>
+        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
           <p className="text-slate-200">{currentPost.theme}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Image Column */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="flex flex-col">
-          <h3 className="text-lg font-semibold mb-2 text-slate-300">IMAGEM / LINK</h3>
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">IMAGEM / LINK</h3>
           {isExternalUrl ? (
             <a href={currentPost.imageUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir link da imagem externa" title="Ver imagem original">
-              <div className="aspect-square bg-slate-900 rounded-md overflow-hidden shadow-inner relative group cursor-pointer">
+              <div className="aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-inner relative group cursor-pointer">
                 <img 
                   src={currentPost.imageUrl} 
                   alt={`Pré-visualização da imagem externa para o tema: ${currentPost.theme}`}
@@ -894,7 +870,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
               </div>
             </a>
           ) : (
-            <div className="aspect-square bg-slate-900 rounded-md overflow-hidden shadow-inner">
+            <div className="aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-inner">
               <img 
                 src={currentPost.imageUrl} 
                 alt={`Imagem gerada por IA para o tema: ${currentPost.theme}`}
@@ -904,13 +880,10 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           )}
         </div>
 
-
-        {/* Text Column */}
         <div className="flex flex-col space-y-6">
-          {/* Caption Section */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-slate-300">{currentPost.platform === 'YouTube' ? 'TÍTULO E DESCRIÇÃO' : 'LEGENDA COMPLETA'}</h3>
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{currentPost.platform === 'YouTube' ? 'TÍTULO E DESCRIÇÃO' : 'LEGENDA COMPLETA'}</h3>
               <button
                 onClick={() => handleCopy(currentPost.caption, 'caption')}
                 className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
@@ -920,16 +893,15 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <span>{copied === 'caption' ? 'Copiado!' : 'Copiar'}</span>
               </button>
             </div>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 max-h-48 overflow-y-auto custom-scrollbar">
+            <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 max-h-48 overflow-y-auto custom-scrollbar">
               <p className="text-slate-200 whitespace-pre-wrap">{currentPost.caption}</p>
             </div>
           </div>
 
-          {/* Hashtags Section */}
           {showHashtags && (
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold text-slate-300">{currentPost.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'BLOCO DE HASHTAGS'}</h3>
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{currentPost.platform === 'YouTube' ? 'TAGS DO VÍDEO' : 'HASHTAGS'}</h3>
                    <button
                     onClick={() => handleCopy(currentPost.hashtags, 'hashtags')}
                     className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
@@ -939,16 +911,19 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     <span>{copied === 'hashtags' ? 'Copiado!' : 'Copiar'}</span>
                   </button>
                 </div>
-                <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+                <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
                   <p className="text-cyan-300 break-words">{currentPost.hashtags}</p>
                 </div>
               </div>
           )}
           
-          {/* Creative Options Section */}
+        </div>
+      </div>
+      
+        <div className="mt-10 pt-8 border-t border-slate-700/50 space-y-8">
           <div>
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">Opções Criativas</h3>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+            <h3 className="text-lg font-semibold text-slate-300 mb-3 text-center">Opções Criativas ✨</h3>
+            <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
                 {isGeneratingVariations ? (
                      <div className="flex items-center justify-center text-slate-400 min-h-[40px]">
                         <SmallSpinner />
@@ -989,7 +964,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 ) : (
                     <button
                         onClick={handleGenerateVariations}
-                        className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
+                        className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
                     >
                         <SparklesIcon />
                         <span>Gerar Variações do Post</span>
@@ -998,12 +973,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
             </div>
           </div>
 
-
-          {/* Hashtag Suggestions Section */}
           {canSuggestHashtags && showHashtags && (
-            <div>
-              <h3 className="text-lg font-semibold text-slate-300 mb-2">Sugestões de IA</h3>
-              <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px] flex items-center justify-center">
+            <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 min-h-[58px] flex items-center justify-center">
                   {isSuggesting ? (
                       <div className="flex items-center text-slate-400">
                           <SmallSpinner />
@@ -1027,74 +998,68 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                   ) : (
                       <button
                           onClick={handleSuggestHashtags}
-                          className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-all duration-200"
+                          className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-700 hover:to-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 transition-all duration-200"
                       >
                           <SparklesIcon />
                           <span>Sugerir Mais Hashtags</span>
                       </button>
                   )}
               </div>
-            </div>
           )}
 
-            {/* Video Script Section */}
             {currentPost.platform === 'YouTube' && (
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-300 mb-2">Roteiro para Vídeo</h3>
-                    <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 min-h-[58px]">
-                        {isGeneratingScript ? (
-                            <div className="flex items-center justify-center text-slate-400">
-                                <SmallSpinner />
-                                <span className="ml-2 text-sm">IA está escrevendo o roteiro...</span>
+                <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 min-h-[58px]">
+                    <h4 className="font-bold text-lg text-slate-200 mb-3 text-center">Roteiro para Vídeo</h4>
+                    {isGeneratingScript ? (
+                        <div className="flex items-center justify-center text-slate-400">
+                            <SmallSpinner />
+                            <span className="ml-2 text-sm">IA está escrevendo o roteiro...</span>
+                        </div>
+                    ) : scriptError ? (
+                        <p className="text-red-400 text-center text-sm">{scriptError}</p>
+                    ) : videoScript ? (
+                        <div>
+                            <div className="flex justify-end mb-2">
+                                <button
+                                    onClick={() => handleCopy(videoScript, 'script')}
+                                    className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
+                                    aria-label="Copiar roteiro"
+                                >
+                                    <CopyIcon />
+                                    <span>{copied === 'script' ? 'Copiado!' : 'Copiar Roteiro'}</span>
+                                </button>
                             </div>
-                        ) : scriptError ? (
-                            <p className="text-red-400 text-center text-sm">{scriptError}</p>
-                        ) : videoScript ? (
-                            <div>
-                                <div className="flex justify-end mb-2">
-                                    <button
-                                        onClick={() => handleCopy(videoScript, 'script')}
-                                        className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
-                                        aria-label="Copiar roteiro"
-                                    >
-                                        <CopyIcon />
-                                        <span>{copied === 'script' ? 'Copiado!' : 'Copiar Roteiro'}</span>
-                                    </button>
-                                </div>
-                                <div className="max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                                    <p className="text-slate-200 whitespace-pre-wrap">{videoScript}</p>
-                                </div>
+                            <div className="max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                                <p className="text-slate-200 whitespace-pre-wrap">{videoScript}</p>
                             </div>
-                        ) : (
-                            <button
-                                onClick={handleGenerateScript}
-                                className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
-                            >
-                                <SparklesIcon />
-                                <span>Gerar Roteiro com IA</span>
-                            </button>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleGenerateScript}
+                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-200"
+                        >
+                            <SparklesIcon />
+                            <span>Gerar Roteiro com IA</span>
+                        </button>
+                    )}
                 </div>
             )}
         </div>
-      </div>
       
-       {/* Video Production Section */}
        {currentPost.platform === 'YouTube' && videoScript && (
-          <div className="mt-8 pt-6 border-t border-slate-700">
+          <div className="mt-8 pt-6 border-t border-slate-700/50">
             <h3 className="text-lg font-bold text-slate-300 mb-4 text-center">Produção de Vídeo Completo</h3>
-            <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+            <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
               
               {!isVeoKeySelected ? (
-                <div className="text-center p-4 bg-amber-900/30 border border-amber-700 rounded-md">
-                   <WarningIcon />
-                  <p className="text-amber-300 font-semibold mt-2">Ação necessária para gerar vídeo</p>
-                  <p className="text-sm text-amber-400 mt-1 mb-4">
+                <div className="text-center p-4 bg-yellow-900/30 border border-yellow-700 rounded-xl">
+                   <div className="mx-auto w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center mb-2"><WarningIcon /></div>
+                  <p className="text-yellow-300 font-semibold mt-2">Ação necessária para gerar vídeo</p>
+                  <p className="text-sm text-yellow-400 mt-1 mb-4">
                     A geração de vídeo requer uma chave de API específica. Clique no botão abaixo para selecionar sua chave.
-                    Verifique o <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-200">guia de faturamento</a> para mais detalhes.
+                    Verifique o <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-200">guia de faturamento</a> para mais detalhes.
                   </p>
-                  <button onClick={handleSelectVeoKey} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded transition-colors">
+                  <button onClick={handleSelectVeoKey} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                     Selecionar Chave de API
                   </button>
                 </div>
@@ -1106,7 +1071,6 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
               ) : mediaError ? (
                   <div className="text-center">
                     <p className="text-red-400 text-sm">{mediaError}</p>
-                    {/* Fallback UI */}
                     {audioUrl && videoUrl && (
                         <div className="mt-4 pt-4 border-t border-slate-700">
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
@@ -1131,7 +1095,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <button 
                             onClick={() => finalVideoBlob && downloadBlob(finalVideoBlob, `video_completo-${getCleanThemeForFilename()}.webm`)} 
-                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
                         >
                             <DownloadIcon />
                             <span>Salvar Vídeo (.webm)</span>
@@ -1139,7 +1103,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                         <button
                             onClick={handlePublishFullVideo}
                             disabled={isPublishingVideo}
-                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-70 disabled:cursor-wait"
+                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-70 disabled:cursor-wait"
                         >
                             <ShareIcon />
                             <span>{isPublishingVideo ? 'Publicando...' : 'Publicar Vídeo'}</span>
@@ -1147,7 +1111,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     </div>
                 </div>
               ) : (
-                <button onClick={handleCreateFullVideo} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-sky-500 hover:from-cyan-700 hover:to-sky-600">
+                <button onClick={handleCreateFullVideo} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-600 hover:to-sky-600">
                   <VideoIcon />
                   <span>Criar e Salvar Vídeo Completo</span>
                 </button>
@@ -1156,12 +1120,13 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
           </div>
         )}
 
-      <div className="mt-8 pt-6 border-t border-slate-700">
+      <div className="mt-10 pt-8 border-t border-slate-700/50">
+        <h3 className="text-lg font-semibold text-slate-300 mb-4 text-center">Ações Finais 🚀</h3>
         <div className="flex flex-col gap-4">
             <button
                 onClick={handlePost}
                 disabled={isSharing}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
+                className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-xl shadow-lg text-base font-bold text-white bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:from-fuchsia-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-fuchsia-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
             >
                 {isSharing ? <SmallSpinner /> : <ShareIcon />}
                 <span className="ml-2">{isSharing ? 'Preparando...' : `Postar no ${currentPost.platform}`}</span>
@@ -1171,7 +1136,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <button
                     onClick={handleSavePost}
                     disabled={isSaving}
-                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="export-button"
                 >
                     {isSaving ? <SmallSpinner /> : <SaveIcon />}
                     <span>{saveButtonText}</span>
@@ -1179,7 +1144,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <button
                     onClick={handleDownloadPdf}
                     disabled={isDownloadingPdf}
-                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="export-button"
                 >
                     {isDownloadingPdf ? <SmallSpinner /> : <PdfIcon />}
                     <span>{isDownloadingPdf ? 'Gerando...' : 'Salvar PDF'}</span>
@@ -1187,7 +1152,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <button
                     onClick={handleDownloadDocx}
                     disabled={isDownloadingDocx}
-                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="export-button"
                 >
                     {isDownloadingDocx ? <SmallSpinner /> : <DocxIcon />}
                     <span>{isDownloadingDocx ? 'Gerando...' : 'Salvar DOCX'}</span>
@@ -1195,7 +1160,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <button
                     onClick={handleSaveAsImage}
                     disabled={isSavingAsImage}
-                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="export-button"
                 >
                     {isSavingAsImage ? <SmallSpinner /> : <ImageIcon />}
                     <span>{isSavingAsImage ? 'Gerando...' : 'Salvar Imagem'}</span>
@@ -1203,14 +1168,14 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <button
                     onClick={handleSaveToDrive}
                     disabled={isSavingToDrive}
-                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="export-button"
                 >
                     {isSavingToDrive ? <SmallSpinner /> : <GoogleDriveIcon />}
                     <span>{isSavingToDrive ? 'Preparando...' : 'Salvar no Drive'}</span>
                 </button>
             </div>
         </div>
-        <p className="text-center text-xs text-slate-500 mt-3">
+        <p className="text-center text-xs text-slate-500 mt-4">
           Use "Postar" para compartilhar ou as outras opções para salvar em diferentes formatos.
         </p>
       </div>

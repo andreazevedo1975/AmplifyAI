@@ -181,6 +181,21 @@ const getPlatformSpecifics = (platform: string) => {
   }
 }
 
+const handleCommonErrors = (error: unknown) => {
+    const errorString = String(error).toLowerCase();
+
+    if (errorString.includes('resource_exhausted') || errorString.includes('429')) {
+      return new Error("[RESOURCE_EXHAUSTED_ERROR] O serviço de geração está sobrecarregado. Por favor, tente novamente mais tarde.");
+    }
+    if (errorString.includes('safety')) {
+        return new Error("[SAFETY_BLOCK] Sua solicitação foi bloqueada por motivos de segurança.");
+    }
+    if (error instanceof Error && error.message.startsWith('[')) {
+        return error; // Re-throw our specific, already-formatted errors
+    }
+    return null; // Not a common, identifiable error
+}
+
 export const generateImage = async (prompt: string, platform: string): Promise<string> => {
   const specifics = getPlatformSpecifics(platform);
   const finalPrompt = `${prompt}, ${specifics.imagePromptSuffix}`;
@@ -200,20 +215,13 @@ export const generateImage = async (prompt: string, platform: string): Promise<s
       const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
       return `data:image/jpeg;base64,${base64ImageBytes}`;
     } else {
-      // This case might be triggered by safety policies as well
-      throw new Error("[IMAGE_GEN_ERROR] Nenhuma imagem foi gerada. Isso pode ocorrer devido a políticas de segurança.");
+      throw new Error("[SAFETY_BLOCK] Nenhuma imagem foi gerada, possivelmente devido a políticas de segurança.");
     }
   } catch (error) {
     console.error("Erro ao gerar imagem:", error);
-    const errorString = String(error).toLowerCase();
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
 
-    if (errorString.includes('resource_exhausted') || errorString.includes('429')) {
-      throw new Error("[RESOURCE_EXHAUSTED_ERROR] O serviço de geração de imagem está sobrecarregado. Por favor, tente novamente mais tarde.");
-    }
-
-    if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] Sua solicitação de imagem foi bloqueada por motivos de segurança.");
-    }
     throw new Error("[IMAGE_GEN_ERROR] Falha ao gerar a imagem. Verifique o prompt e tente novamente.");
   }
 };
@@ -277,60 +285,37 @@ export const generateContentWithSearch = async (theme: string, platform: string,
       config: modelConfig,
     });
 
-    // Primary check for safety blocks based on the API response
     if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
         throw new Error("[SAFETY_BLOCK] A resposta foi bloqueada devido às configurações de segurança.");
     }
 
     const text = response.text.trim();
     
-    // More robust JSON extraction
     const startIndex = text.indexOf('{');
     const endIndex = text.lastIndexOf('}');
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
         const jsonString = text.substring(startIndex, endIndex + 1);
         try {
             const parsedContent: GeneratedContent = JSON.parse(jsonString);
-            if (parsedContent.caption && typeof parsedContent.hashtags !== 'undefined') { // Check if hashtags property exists
+            if (parsedContent.caption && typeof parsedContent.hashtags !== 'undefined') {
                 return parsedContent;
             } else {
-                 // The JSON is valid, but missing required fields.
                  throw new Error("[FORMAT_ERROR] O conteúdo gerado pela IA está incompleto (faltam legendas ou hashtags).");
             }
         } catch (e) {
             console.error("Erro ao fazer parse do JSON da resposta:", e, "String tentada:", jsonString);
-            // The string is not valid JSON
             throw new Error("[FORMAT_ERROR] A IA não retornou o conteúdo no formato JSON esperado.");
         }
     }
     
-    // If no JSON block is found
     console.error("Resposta da IA não continha um bloco JSON válido:", text);
     throw new Error("[FORMAT_ERROR] A IA não retornou o conteúdo no formato esperado. Tente refinar seu tema.");
 
   } catch (error) {
     console.error("Erro ao gerar conteúdo:", error);
-    const errorString = String(error).toLowerCase();
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
 
-    if (errorString.includes('resource_exhausted') || errorString.includes('429')) {
-      throw new Error("[RESOURCE_EXHAUSTED_ERROR] O serviço de geração de conteúdo está sobrecarregado. Por favor, tente novamente mais tarde.");
-    }
-
-    if (error instanceof Error) {
-        if (error.message.includes('[FORMAT_ERROR]')) {
-            throw error; // Re-throw the specific format error
-        }
-        if (error.message.includes('[SAFETY_BLOCK]')) {
-             throw new Error("[SAFETY_BLOCK] Sua solicitação foi bloqueada pelas políticas de segurança da IA.");
-        }
-    }
-    
-    // Fallback check for safety errors in the error string
-    if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] Sua solicitação foi bloqueada pelas políticas de segurança da IA.");
-    }
-    
-    // Generic content generation error
     throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar o conteúdo de texto.");
   }
 };
@@ -380,17 +365,16 @@ export const generateInspirationalIdea = async (category: 'quote' | 'story' | 'r
     });
     
     if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
-        throw new Error("A geração de ideia foi bloqueada por motivos de segurança.");
+        throw new Error("[SAFETY_BLOCK] A geração de ideia foi bloqueada por motivos de segurança.");
     }
 
-    return response.text.trim().replace(/"/g, ''); // Remove any quotes the model might add
+    return response.text.trim().replace(/"/g, '');
   } catch (error) {
     console.error("Erro ao gerar ideia inspiradora:", error);
-    const errorString = String(error).toLowerCase();
-    if (errorString.includes('safety')) {
-        throw new Error("A solicitação de ideia foi bloqueada pelas políticas de segurança da IA.");
-    }
-    throw new Error("Falha ao gerar a ideia inspiradora.");
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar a ideia inspiradora.");
   }
 };
 
@@ -468,15 +452,8 @@ export const generateMultiplePostVariations = async (theme: string, platform: st
     
   } catch (error) {
     console.error("Erro ao gerar variações de conteúdo:", error);
-    const errorString = String(error).toLowerCase();
-
-    if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] Sua solicitação de variação foi bloqueada pelas políticas de segurança da IA.");
-    }
-    
-    if (error instanceof Error && error.message.startsWith('[')) {
-        throw error; // Re-throw our specific errors
-    }
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
 
     throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar as variações do post.");
   }
@@ -513,6 +490,10 @@ export const suggestHashtags = async (baseHashtags: string, platform: string): P
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
+    
+    if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error("[SAFETY_BLOCK] A sugestão de hashtags foi bloqueada por motivos de segurança.");
+    }
 
     const text = response.text.trim();
     const startIndex = text.indexOf('[');
@@ -525,19 +506,17 @@ export const suggestHashtags = async (baseHashtags: string, platform: string): P
         return suggestions.filter(tag => typeof tag === 'string' && tag.startsWith('#'));
       } catch (e) {
         console.error("Erro ao fazer parse do JSON de sugestão de hashtag:", e, "String tentada:", jsonString);
-        throw new Error("A IA não retornou as sugestões no formato JSON esperado.");
+        throw new Error("[FORMAT_ERROR] A IA não retornou as sugestões no formato JSON esperado.");
       }
     }
     
-    console.error("Resposta de sugestão de hashtag não continha um array JSON válido:", text);
-    throw new Error("A IA não retornou as sugestões no formato esperado.");
+    throw new Error("[FORMAT_ERROR] A IA não retornou as sugestões no formato esperado.");
 
   } catch (error) {
     console.error("Erro ao sugerir hashtags:", error);
-    if (error.toString().toLowerCase().includes('safety')) {
-      throw new Error("A solicitação de sugestão foi bloqueada por motivos de segurança.");
-    }
-    throw new Error("Falha ao gerar sugestões de hashtags.");
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar sugestões de hashtags.");
   }
 };
 
@@ -576,15 +555,13 @@ export const generateVideoScript = async (title: string, description:string): Pr
     return response.text.trim();
   } catch (error) {
     console.error("Erro ao gerar roteiro de vídeo:", error);
-    const errorString = String(error).toLowerCase();
-    if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] A solicitação de roteiro foi bloqueada pelas políticas de segurança da IA.");
-    }
-    throw new Error("Falha ao gerar o roteiro para o vídeo.");
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao gerar o roteiro para o vídeo.");
   }
 };
 
-// FIX: Add and export the missing 'generateAudioFromScript' function to generate audio from a script.
 export const generateAudioFromScript = async (script: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
@@ -594,7 +571,6 @@ export const generateAudioFromScript = async (script: string): Promise<string> =
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            // Using a neutral, clear voice. Other options: 'Puck', 'Charon', 'Fenrir', 'Zephyr'
             prebuiltVoiceConfig: {voiceName: 'Kore'},
           },
         },
@@ -607,23 +583,19 @@ export const generateAudioFromScript = async (script: string): Promise<string> =
       return base64Audio;
     } else {
       throw new Error(
-        '[AUDIO_GEN_ERROR] Nenhum áudio foi gerado. A resposta da API estava vazia.',
+        '[AUDIO_GEN_ERROR] Nenhum áudio foi gerado. A resposta da API estava vazia, possivelmente devido a políticas de segurança.'
       );
     }
   } catch (error) {
     console.error('Erro ao gerar áudio do roteiro:', error);
-    const errorString = String(error).toLowerCase();
-    if (errorString.includes('safety')) {
-      throw new Error(
-        '[SAFETY_BLOCK] A solicitação de áudio foi bloqueada pelas políticas de segurança da IA.',
-      );
-    }
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+
     throw new Error('[AUDIO_GEN_ERROR] Falha ao gerar o áudio para o roteiro.');
   }
 };
 
 export const generateVideoFromPrompt = async (prompt: string, imageBase64?: string): Promise<Blob> => {
-  // Always create a new instance to ensure the latest API key from the dialog is used.
   const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY! });
   try {
     
@@ -646,9 +618,8 @@ export const generateVideoFromPrompt = async (prompt: string, imageBase64?: stri
 
     let operation = await localAi.models.generateVideos(payload);
 
-    // Poll for the result
     while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
+      await new Promise(resolve => setTimeout(resolve, 10000));
       operation = await localAi.operations.getVideosOperation({ operation: operation });
     }
 
@@ -657,7 +628,6 @@ export const generateVideoFromPrompt = async (prompt: string, imageBase64?: stri
         throw new Error("[VIDEO_GEN_ERROR] A geração do vídeo foi concluída, mas nenhum link de download foi encontrado.");
     }
 
-    // Append API key and fetch the video blob
     const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
     if (!videoResponse.ok) {
         throw new Error(`[VIDEO_DOWNLOAD_ERROR] Falha ao baixar o arquivo de vídeo: ${videoResponse.statusText}`);
@@ -671,9 +641,9 @@ export const generateVideoFromPrompt = async (prompt: string, imageBase64?: stri
     if (errorString.includes('requested entity was not found')) {
       throw new Error("[VEO_KEY_ERROR] A chave de API selecionada não foi encontrada ou não tem permissão. Por favor, selecione uma chave válida.");
     }
-    if (errorString.includes('safety')) {
-        throw new Error("[SAFETY_BLOCK] A solicitação de vídeo foi bloqueada pelas políticas de segurança da IA.");
-    }
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+    
     throw new Error("[VIDEO_GEN_ERROR] Falha ao gerar o clipe de vídeo.");
   }
 };

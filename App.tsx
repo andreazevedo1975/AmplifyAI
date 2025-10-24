@@ -1,361 +1,317 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { PostOutput } from './components/PostOutput';
-import { Spinner } from './components/Spinner';
-import { generateContentWithSearch, generateImage, generateVideoFromPrompt, generateVideoScript } from './services/geminiService';
-import { addPost, getAllPosts, deletePost, clearPosts } from './services/dbService';
-import type { PostData, AppError, VideoOutputData } from './types';
-import { WarningIcon } from './components/icons/WarningIcon';
-import { History } from './components/History';
 import { VideoOutput } from './components/VideoOutput';
 import { ScriptOutput } from './components/ScriptOutput';
-
-// Helper to convert any image URL (including data URLs) to a base64 string without prefix
-async function imageUrlToBase64(url: string): Promise<string> {
-    if (url.startsWith('data:')) {
-        return url.split(',')[1];
-    }
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
+import { History } from './components/History';
+import { WarningIcon } from './components/icons/WarningIcon';
+import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt } from './services/geminiService';
+import { addPost, getAllPosts, deletePost, clearPosts } from './services/dbService';
+import type { PostData, AppError, VideoOutputData } from './types';
 
 const App: React.FC = () => {
-  const [postData, setPostData] = useState<PostData | null>(null);
-  const [videoOutput, setVideoOutput] = useState<VideoOutputData | null>(null);
-  const [scriptOutput, setScriptOutput] = useState<{ title: string; script: string } | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isThinking, setIsThinking] = useState<boolean>(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>('');
-  const [error, setError] = useState<AppError | null>(null);
-  const [history, setHistory] = useState<PostData[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<AppError | null>(null);
+    const [generatedPost, setGeneratedPost] = useState<PostData | null>(null);
+    const [generatedVideo, setGeneratedVideo] = useState<VideoOutputData | null>(null);
+    const [generatedScript, setGeneratedScript] = useState<{ title: string, script: string } | null>(null);
+    const [history, setHistory] = useState<PostData[]>([]);
+    
+    const outputRef = useRef<HTMLDivElement>(null);
 
-  // Load history from IndexedDB on initial render
-  useEffect(() => {
-    getAllPosts().then(posts => {
-      // Reverse to show newest first
-      setHistory(posts.reverse());
-    }).catch(error => {
-      console.error("Failed to load history from DB", error);
-      setHistory([]);
-    });
-  }, []);
-  
-  const isUrl = (text: string): boolean => {
-    try {
-      new URL(text);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
-  
-  const handleError = (err: unknown) => {
-    console.error(err);
-    const errorObject: AppError = {
-        title: "Oops! Algo deu errado.",
-        message: "Ocorreu um erro desconhecido. Por favor, tente novamente mais tarde.",
-        suggestion: "Verifique sua conexão com a internet ou tente simplificar sua solicitação."
+    useEffect(() => {
+        const loadHistory = async () => {
+            const items = await getAllPosts();
+            setHistory(items.sort((a, b) => parseInt(b.id) - parseInt(a.id)));
+        };
+        loadHistory();
+    }, []);
+
+    const scrollToOutput = () => {
+        setTimeout(() => {
+            outputRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
     };
 
-    if (err instanceof Error) {
-        const msg = err.message;
-        if (msg.includes("[FORMAT_ERROR]")) {
-            errorObject.title = "Resposta Inesperada da IA";
-            errorObject.message = "A inteligência artificial retornou dados em um formato ou com conteúdo incompleto que o aplicativo não conseguiu entender.";
-            errorObject.suggestion = "Isso pode acontecer com temas muito complexos ou ambíguos. Tente refinar ou simplificar o tema do seu post.";
-        } else if (msg.includes("[RESOURCE_EXHAUSTED_ERROR]")) {
-            errorObject.title = "Serviço Temporariamente Indisponível";
-            errorObject.message = "A IA está com alta demanda no momento e não conseguiu processar sua solicitação.";
-            errorObject.suggestion = "Isso é temporário. Por favor, aguarde um momento e tente gerar o post novamente.";
-        } else if (msg.includes("[IMAGE_GEN_ERROR]")) {
-            errorObject.title = "Falha na Geração de Imagem";
-            errorObject.message = "Não foi possível criar a imagem solicitada com base no seu prompt ou URL.";
-            errorObject.suggestion = "Tente alterar o prompt da imagem. Se o erro persistir, verifique se o conteúdo não viola as políticas de segurança da IA.";
-        } else if (msg.includes("[CONTENT_GEN_ERROR]")) {
-            errorObject.title = "Falha na Geração de Conteúdo";
-            errorObject.message = "Não foi possível criar a legenda e as hashtags para o tema proposto.";
-            errorObject.suggestion = "Tente novamente. Se o erro persistir, o serviço da IA pode estar temporariamente indisponível.";
-        } else if (msg.includes('[SAFETY_BLOCK]')) {
-            errorObject.title = "Conteúdo Bloqueado por Segurança";
-            errorObject.message = "Sua solicitação não pôde ser concluída pois o conteúdo foi considerado inadequado pelas políticas de segurança da IA.";
-            errorObject.suggestion = "Por favor, reformule seu tema e/ou prompt de imagem para estar de acordo com as diretrizes de uso e evite tópicos sensíveis.";
-        } else if (msg.includes('[VEO_KEY_ERROR]')) {
-            errorObject.title = "Chave de API Inválida para Vídeo";
-            errorObject.message = "A chave de API selecionada não tem permissão para usar o serviço de vídeo ou não foi encontrada.";
-            errorObject.suggestion = "A janela de seleção foi reaberta. Por favor, escolha uma chave habilitada para a 'Generative AI API' em seu projeto Google Cloud e tente novamente.";
-            // Proactively open the key selection dialog to streamline the user's recovery path.
-            // @ts-ignore
-            if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-                // @ts-ignore
-                window.aistudio.openSelectKey();
+    const handleGenerate = async (options: {
+        mode: 'post' | 'video' | 'script';
+        theme: string;
+        imageInput: string;
+        platform: string;
+        profileUrl: string;
+        thinkingMode: boolean;
+        creativityMode: boolean;
+        focusMode: boolean;
+        tone: string;
+        scriptTitle?: string;
+        scriptDescription?: string;
+    }) => {
+        setIsLoading(true);
+        setError(null);
+        setGeneratedPost(null);
+        setGeneratedVideo(null);
+        setGeneratedScript(null);
+
+        try {
+            if (options.mode === 'post') {
+                if (['YouTube', 'TikTok'].includes(options.platform) && !options.imageInput) {
+                    setError({
+                        title: 'Sugestão de Funcionalidade',
+                        message: `Para plataformas como ${options.platform}, que são focadas em vídeo, um post estático pode não ser a melhor opção.`,
+                        suggestion: 'Recomendamos usar as abas "Gerar Vídeo" ou "Gerar Roteiro" para criar um conteúdo com maior potencial de engajamento.'
+                    });
+                    setIsLoading(false);
+                    scrollToOutput();
+                    return;
+                }
+                await handleGeneratePost(options);
+            } else if (options.mode === 'video') {
+                await handleGenerateVideo(options);
+            } else if (options.mode === 'script') {
+                await handleGenerateScript(options);
             }
-        } else if (msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('authentication')) {
-            errorObject.title = "Erro de Configuração";
-            errorObject.message = "Não foi possível conectar ao serviço de IA devido a um problema de autenticação.";
-            errorObject.suggestion = "Este é um problema técnico do aplicativo. Por favor, tente novamente mais tarde. Se o problema persistir, o serviço pode estar em manutenção.";
+        } catch (err) {
+            console.error("Generation failed:", err);
+            const friendlyError = parseError(err as Error);
+            setError(friendlyError);
+        } finally {
+            setIsLoading(false);
+            scrollToOutput();
+        }
+    };
+
+    const handleGeneratePost = async (options: any) => {
+        let imageUrl = '';
+        if (options.imageInput) {
+            try {
+                new URL(options.imageInput);
+                imageUrl = options.imageInput;
+            } catch (_) {
+                imageUrl = await generateImage(options.imageInput, options.platform);
+            }
         } else {
-            errorObject.message = err.message;
+            imageUrl = await generateImage(options.theme, options.platform);
         }
-    }
-    setError(errorObject);
-  }
 
-  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string, focusMode: boolean) => {
-    if (platform === 'YouTube' || platform === 'TikTok') {
-        setError({
-            title: "Plataforma Orientada a Vídeo",
-            message: `A plataforma selecionada (${platform}) é focada em conteúdo de vídeo. A geração de posts estáticos (imagem e texto) não é o ideal.`,
-            suggestion: "Para criar conteúdo otimizado, por favor, utilize as funcionalidades 'Gerar Vídeo' ou 'Gerar Roteiro'."
-        });
-        return; // Stop execution for these platforms
-    }
+        const content = await generateContentWithSearch(
+            options.theme,
+            options.platform,
+            options.profileUrl,
+            options.thinkingMode,
+            options.creativityMode,
+            options.tone,
+            options.focusMode
+        );
+
+        const newPost: PostData = {
+            id: Date.now().toString(),
+            theme: options.theme,
+            imageUrl,
+            caption: content.caption,
+            hashtags: content.hashtags,
+            platform: options.platform,
+            profileUrl: options.profileUrl,
+            creativityMode: options.creativityMode,
+            thinkingMode: options.thinkingMode,
+            focusMode: options.focusMode,
+            tone: options.tone,
+        };
+
+        setGeneratedPost(newPost);
+        await addPost(newPost);
+        setHistory(prev => [newPost, ...prev]);
+    };
     
-    setIsThinking(thinkingMode);
-    setLoadingMessage(thinkingMode
-        ? "A IA está em modo de análise profunda... isso pode levar mais tempo."
-        : "A IA está gerando sua imagem e texto... isso pode levar um momento."
-      );
-
-    try {
-      let imageUrl = '';
-
-      if (imageInput && isUrl(imageInput)) {
-        imageUrl = imageInput;
-      } else {
-        // The imageInput is a prompt (either user-provided or the default generated in InputForm).
-        // InputForm now guarantees a prompt is provided if a text-to-image generation is intended.
-        imageUrl = await generateImage(imageInput, platform);
-      }
-      
-      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode, tone, focusMode);
-
-      const newPost: PostData = {
-        id: Date.now().toString(),
-        theme,
-        imageUrl,
-        caption: content.caption,
-        hashtags: content.hashtags,
-        platform,
-        profileUrl,
-        thinkingMode,
-        creativityMode,
-        focusMode,
-        tone,
-      };
-
-      await addPost(newPost);
-      setPostData(newPost);
-      setHistory(prevHistory => [newPost, ...prevHistory]);
-      
-    } catch (err) {
-      handleError(err);
-    }
-  };
-  
-  const handleGenerateVideo = async (theme: string, imageInput: string, platform: string) => {
-      // @ts-ignore
-      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            setLoadingMessage("A geração de vídeo requer uma chave de API. A janela de seleção será aberta em instantes...");
-            await new Promise(resolve => setTimeout(resolve, 2500));
-            // @ts-ignore
-            await window.aistudio.openSelectKey();
-        }
-    }
-    
-    setLoadingMessage("IA está gerando seu vídeo... isso pode levar alguns minutos.");
-
-    try {
+    const handleGenerateVideo = async (options: any) => {
         let imageBase64: string | undefined = undefined;
-        if (imageInput && isUrl(imageInput)) {
-            imageBase64 = await imageUrlToBase64(imageInput);
+        if (options.imageInput) {
+            try {
+                 // @ts-ignore
+                if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+                    // @ts-ignore
+                    const hasKey = await window.aistudio.hasSelectedApiKey();
+                    if (!hasKey) {
+                        setError({
+                            title: 'Chave de API Necessária',
+                            message: 'Para gerar um vídeo, você precisa primeiro selecionar uma chave de API.',
+                            suggestion: 'A janela de seleção de chave será aberta. Por favor, escolha uma chave habilitada para a "Generative AI API" e tente novamente.'
+                        });
+                        setTimeout(() => {
+                             // @ts-ignore
+                            window.aistudio.openSelectKey();
+                        }, 2500);
+                        return;
+                    }
+                }
+
+                const response = await fetch(options.imageInput);
+                const blob = await response.blob();
+                imageBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                throw new Error("[VIDEO_GEN_ERROR] Falha ao processar a URL da imagem fornecida.");
+            }
         }
 
-        const videoBlob = await generateVideoFromPrompt(theme, imageBase64);
+        const videoBlob = await generateVideoFromPrompt(options.theme, imageBase64);
         const videoUrl = URL.createObjectURL(videoBlob);
-        setVideoOutput({ url: videoUrl, theme, platform });
-
-    } catch (err) {
-        handleError(err);
-    }
-  }
-  
-  const handleGenerateScript = async (title: string, description: string) => {
-    setIsLoading(true);
-    setError(null);
-    setPostData(null);
-    setVideoOutput(null);
-    setScriptOutput(null);
-    setLoadingMessage("IA está escrevendo seu roteiro...");
-
-    try {
-        const script = await generateVideoScript(title, description);
-        setScriptOutput({ title, script });
-    } catch (err) {
-        handleError(err);
-    }
-    
-    setIsLoading(false);
-    setLoadingMessage('');
-  };
-
-  const handleGenerate = async (options: {
-      mode: 'post' | 'video' | 'script';
-      theme: string;
-      imageInput: string;
-      platform: string;
-      profileUrl: string;
-      thinkingMode: boolean;
-      creativityMode: boolean;
-      focusMode: boolean;
-      tone: string;
-      scriptTitle?: string;
-      scriptDescription?: string;
-  }) => {
-    setIsLoading(true);
-    setError(null);
-    setPostData(null);
-    setVideoOutput(null);
-    setScriptOutput(null);
-
-    switch (options.mode) {
-        case 'video':
-            await handleGenerateVideo(options.theme, options.imageInput, options.platform);
-            break;
-        case 'script':
-            await handleGenerateScript(options.scriptTitle || '', options.scriptDescription || '');
-            break;
-        case 'post':
-        default:
-            await handleGeneratePost(options.theme, options.imageInput, options.platform, options.profileUrl, options.thinkingMode, options.creativityMode, options.tone, options.focusMode);
-            break;
-    }
-    
-    setIsLoading(false);
-    setIsThinking(false);
-    setLoadingMessage('');
-  };
-
-  const handleSelectHistoryItem = (post: PostData) => {
-    setPostData(post);
-    setError(null);
-    setVideoOutput(null);
-    setScriptOutput(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDeleteHistoryItem = (idToDelete: string) => {
-    deletePost(idToDelete).then(() => {
-      setHistory(prevHistory => prevHistory.filter(p => p.id !== idToDelete));
-    }).catch(error => {
-      console.error("Failed to delete post from DB", error);
-    });
-  };
-
-  const handleRegenerateHistoryItem = (post: PostData) => {
-    handleGenerate({
-      mode: 'post',
-      theme: post.theme, 
-      imageInput: '', 
-      platform: post.platform, 
-      profileUrl: post.profileUrl, 
-      thinkingMode: post.thinkingMode || false, 
-      creativityMode: post.creativityMode || false, 
-      focusMode: post.focusMode || false,
-      tone: post.tone || 'Envolvente'
-    });
-  };
-
-  const handleClearHistory = () => {
-    clearPosts().then(() => {
-      setHistory([]);
-    }).catch(error => {
-      console.error("Failed to clear history from DB", error);
-    });
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col">
-      <Header />
-      <main className="container mx-auto px-4 py-12 flex-grow">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-center text-lg text-slate-400 mb-8">
-            Descreva sua ideia e deixe a IA criar um post completo, com imagem e texto, pronto para viralizar.
-          </p>
-          <InputForm onGenerate={handleGenerate} isLoading={isLoading} />
-
-          {isLoading && (
-            <div className="mt-12 flex flex-col items-center justify-center">
-              <Spinner />
-              <p className="mt-4 text-slate-300 animate-pulse text-center">
-                {loadingMessage}
-              </p>
-            </div>
-          )}
-
-          {error && (
-             <div className="mt-12 p-5 bg-red-900/50 border border-red-700 rounded-lg text-red-300 animate-fade-in">
-                <div className="flex items-center gap-3">
-                    <WarningIcon />
-                    <h3 className="font-bold text-lg text-red-200">{error.title}</h3>
-                </div>
-                <p className="mt-2 pl-9 text-red-300">{error.message}</p>
-                {error.suggestion && (
-                    <div className="mt-4 pl-9">
-                      <div className="bg-red-800/50 p-3 rounded-md border border-red-700/50 text-red-200">
-                        <p className="text-sm "><strong className="font-semibold">Sugestão:</strong> {error.suggestion}</p>
-                      </div>
-                    </div>
-                )}
-            </div>
-          )}
-
-          {postData && !isLoading && (
-            <div className="mt-12">
-              <PostOutput data={postData} />
-            </div>
-          )}
-          
-          {scriptOutput && !isLoading && (
-            <div className="mt-12">
-                <ScriptOutput data={scriptOutput} />
-            </div>
-          )}
-
-          {videoOutput && !isLoading && (
-            <div className="mt-12">
-              <VideoOutput data={videoOutput} />
-            </div>
-          )}
-        </div>
         
-        {/* History section is now outside the max-width container to allow it to be wider */}
-        <div className="mt-12">
-          <History 
-              items={history}
-              onSelect={handleSelectHistoryItem}
-              onDelete={handleDeleteHistoryItem}
-              onRegenerate={handleRegenerateHistoryItem}
-              onClear={handleClearHistory}
-          />
-        </div>
+        const newVideoOutput: VideoOutputData = {
+            url: videoUrl,
+            theme: options.theme,
+            platform: 'YouTube',
+        };
 
-      </main>
-      <footer className="text-center py-4 text-sm text-slate-600">
-        <p>Copyright © {new Date().getFullYear()} by André Azevedo. Todos os direitos reservados.</p>
-      </footer>
-    </div>
-  );
+        setGeneratedVideo(newVideoOutput);
+    };
+
+    const handleGenerateScript = async (options: any) => {
+        const script = await generateVideoScript(options.scriptTitle, options.scriptDescription);
+        setGeneratedScript({
+            title: options.scriptTitle,
+            script: script,
+        });
+    };
+    
+    const parseError = (err: Error): AppError => {
+        const message = err.message || "Ocorreu um erro desconhecido.";
+        
+        if (message.startsWith('[') && message.includes(']')) {
+            const tag = message.substring(1, message.indexOf(']'));
+            const cleanMessage = message.substring(message.indexOf(']') + 2);
+            switch (tag) {
+                case 'SAFETY_BLOCK':
+                    return { 
+                        title: 'Conteúdo Bloqueado por Segurança', 
+                        message: 'Sua solicitação não pôde ser processada porque o conteúdo foi sinalizado como potencialmente sensível ou inseguro pela IA.', 
+                        suggestion: 'Tente reformular seu pedido com termos diferentes. Evite linguagem que possa ser interpretada como sensível, imprópria ou odiosa.' 
+                    };
+                case 'RESOURCE_EXHAUSTED_ERROR':
+                    return { 
+                        title: 'Serviço Sobrecarregado', 
+                        message: 'Nossos servidores de IA estão recebendo um grande volume de solicitações no momento.', 
+                        suggestion: 'Isso é temporário. Por favor, aguarde alguns instantes e tente gerar seu conteúdo novamente.' 
+                    };
+                case 'FORMAT_ERROR':
+                    return { 
+                        title: 'Erro de Formato da Resposta', 
+                        message: 'A IA retornou uma resposta em um formato inesperado e não foi possível processá-la.', 
+                        suggestion: 'Isso pode acontecer com temas muito complexos. Tente simplificar seu tema ou prompt para ajudar a IA a estruturar a resposta corretamente.' 
+                    };
+                 case 'VEO_KEY_ERROR':
+                    return { 
+                        title: 'Chave de API de Vídeo Inválida', 
+                        message: 'A chave de API selecionada não foi encontrada ou não tem permissão para usar a geração de vídeo.', 
+                        suggestion: 'Por favor, clique no botão para selecionar uma chave de API válida habilitada para a "Generative AI API" em seu projeto e tente novamente.' 
+                    };
+                case 'IMAGE_GEN_ERROR':
+                case 'CONTENT_GEN_ERROR':
+                case 'VIDEO_GEN_ERROR':
+                case 'AUDIO_GEN_ERROR':
+                     return { 
+                        title: 'Falha na Geração', 
+                        message: cleanMessage || `Ocorreu um erro ao tentar gerar o conteúdo.`, 
+                        suggestion: 'Verifique sua conexão com a internet e tente novamente. Se o problema persistir, o serviço pode estar temporariamente indisponível.' 
+                     };
+                default:
+                    return { 
+                        title: 'Erro na Geração', 
+                        message: cleanMessage, 
+                        suggestion: 'Tente novamente. Se o erro persistir, tente uma abordagem diferente para o seu prompt.' 
+                    };
+            }
+        }
+        return { 
+            title: 'Erro Inesperado', 
+            message, 
+            suggestion: 'Ocorreu um problema inesperado. Por favor, tente novamente mais tarde.' 
+        };
+    };
+
+    const handleSelectHistory = (post: PostData) => {
+        setGeneratedPost(post);
+        setGeneratedVideo(null);
+        setGeneratedScript(null);
+        setError(null);
+        scrollToOutput();
+    };
+
+    const handleDeleteHistory = async (id: string) => {
+        await deletePost(id);
+        setHistory(prev => prev.filter(item => item.id !== id));
+        if (generatedPost?.id === id) {
+            setGeneratedPost(null);
+        }
+    };
+
+    const handleClearHistory = async () => {
+        if (window.confirm('Tem certeza que deseja apagar todo o histórico? Esta ação não pode ser desfeita.')) {
+            await clearPosts();
+            setHistory([]);
+            setGeneratedPost(null);
+        }
+    };
+
+    const handleRegenerate = (post: PostData) => {
+        const options = {
+            mode: 'post' as const,
+            theme: post.theme,
+            imageInput: post.imageUrl,
+            platform: post.platform,
+            profileUrl: post.profileUrl,
+            thinkingMode: post.thinkingMode || false,
+            creativityMode: post.creativityMode || false,
+            focusMode: post.focusMode || false,
+            tone: post.tone || 'Envolvente',
+        };
+        handleGenerate(options);
+    };
+
+    return (
+        <div className="min-h-screen font-sans">
+            <Header />
+            <main className="container mx-auto px-4 py-8 md:py-12">
+                <div className="max-w-4xl mx-auto space-y-12">
+                    <InputForm onGenerate={handleGenerate} isLoading={isLoading} />
+                    
+                    <div ref={outputRef} className="space-y-8">
+                         {error && (
+                            <div className={`p-6 rounded-2xl flex items-start space-x-4 animate-fade-in ${error.title === 'Sugestão de Funcionalidade' ? 'bg-blue-900/30 border border-blue-500/50' : 'bg-red-900/30 border border-red-500/50'}`}>
+                                <div className={`${error.title === 'Sugestão de Funcionalidade' ? 'text-blue-400' : 'text-red-400'} flex-shrink-0 pt-1`}>
+                                     {error.title === 'Sugestão de Funcionalidade' ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                    ) : (
+                                        <WarningIcon />
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className={`text-xl font-bold ${error.title === 'Sugestão de Funcionalidade' ? 'text-blue-300' : 'text-red-300'}`}>{error.title}</h3>
+                                    <p className={`${error.title === 'Sugestão de Funcionalidade' ? 'text-blue-400' : 'text-red-400'} mt-1`}>{error.message}</p>
+                                    {error.suggestion && <p className="text-sm text-slate-300 mt-3"><strong className="font-semibold">{error.title === 'Sugestão de Funcionalidade' ? 'Recomendação:' : 'Sugestão:'}</strong> {error.suggestion}</p>}
+                                </div>
+                            </div>
+                        )}
+                        {generatedPost && <PostOutput data={generatedPost} />}
+                        {generatedVideo && <VideoOutput data={generatedVideo} />}
+                        {generatedScript && <ScriptOutput data={generatedScript} />}
+                    </div>
+
+                    <History 
+                        items={history} 
+                        onSelect={handleSelectHistory} 
+                        onDelete={handleDeleteHistory} 
+                        onRegenerate={handleRegenerate}
+                        onClear={handleClearHistory}
+                    />
+                </div>
+            </main>
+        </div>
+    );
 };
 
 export default App;

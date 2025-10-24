@@ -2,10 +2,10 @@ import React from 'react';
 import { HomeIcon } from './icons/HomeIcon';
 
 const AmplifyAILogo: React.FC = () => (
-  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#D946EF" /> 
+        <stop offset="0%" stopColor="#F472B6" /> 
         <stop offset="100%" stopColor="#22D3EE" />
       </linearGradient>
     </defs>
@@ -27,7 +27,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 sticky top-0 z-10">
+    <header className="bg-slate-900/50 backdrop-blur-lg sticky top-0 z-20 border-b border-slate-100/10">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <button
           onClick={handleHomeClick}
@@ -37,9 +37,9 @@ export const Header: React.FC = () => {
           <HomeIcon />
         </button>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 cursor-pointer" onClick={handleHomeClick}>
           <AmplifyAILogo />
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 to-cyan-400">
+          <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-cyan-400">
             AmplifyAI
           </h1>
         </div>

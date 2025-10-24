@@ -199,7 +199,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
                 placeholder="Ex: Um astronauta surfando em uma onda cósmica em estilo neon."
-                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                 rows={3}
                 required
               />
@@ -212,11 +212,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </label>
               <div className="flex items-center space-x-4 mb-2">
                 <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio h-4 w-4 text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
                   <span>Nenhuma</span>
                 </label>
                  <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio h-4 w-4 text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
                   <span>URL da Imagem</span>
                 </label>
               </div>
@@ -226,7 +226,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="https://exemplo.com/imagem.jpg"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                 />
               )}
                <p className="text-xs text-slate-400 mt-1">Você pode fornecer uma imagem como ponto de partida para o vídeo.</p>
@@ -246,7 +246,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 value={scriptTitle}
                 onChange={(e) => setScriptTitle(e.target.value)}
                 placeholder="Ex: 5 Dicas Incríveis para Edição de Vídeo"
-                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                 required
               />
             </div>
@@ -259,7 +259,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 value={scriptDescription}
                 onChange={(e) => setScriptDescription(e.target.value)}
                 placeholder="Ex: Neste vídeo, vamos cobrir as melhores técnicas de corte, color grading, uso de trilha sonora, e mais."
-                className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                 rows={3}
                 required
               />
@@ -279,15 +279,15 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                   id="theme"
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  placeholder="Ex: A importância da inteligência artificial no marketing de conteúdo."
-                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 pr-10 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  placeholder="Ex: Os benefícios da meditação guiada para reduzir o estresse."
+                  className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 pr-10 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                   rows={3}
                   required
                 />
                 <button 
                   type="button" 
                   onClick={() => setTheme('')} 
-                  className={`absolute top-2 right-2 p-1 rounded-full text-slate-400 hover:bg-slate-700 hover:text-white transition-opacity ${theme ? 'opacity-100' : 'opacity-0'}`}
+                  className={`absolute top-2.5 right-2.5 p-1 rounded-full text-slate-400 hover:bg-slate-700 hover:text-white transition-opacity ${theme ? 'opacity-100' : 'opacity-0'}`}
                   aria-label="Limpar tema"
                 >
                   <CloseIcon />
@@ -299,9 +299,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                  <div className="flex justify-center items-center gap-2 flex-wrap">
                     {isGeneratingIdea ? <Spinner /> : (
                       <>
-                        <button type="button" onClick={() => handleGenerateIdea('quote')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Citação</button>
-                        <button type="button" onClick={() => handleGenerateIdea('story')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Ideia</button>
-                        <button type="button" onClick={() => handleGenerateIdea('reflection')} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">Gerar Reflexão</button>
+                        <button type="button" onClick={() => handleGenerateIdea('quote')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Citação</button>
+                        <button type="button" onClick={() => handleGenerateIdea('story')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Ideia</button>
+                        <button type="button" onClick={() => handleGenerateIdea('reflection')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Reflexão</button>
                       </>
                     )}
                  </div>
@@ -315,15 +315,15 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </label>
               <div className="flex items-center space-x-4 mb-2">
                 <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" name="imageOption" value="prompt" checked={imageOption === 'prompt'} onChange={() => setImageOption('prompt')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <input type="radio" name="imageOption" value="prompt" checked={imageOption === 'prompt'} onChange={() => setImageOption('prompt')} className="form-radio h-4 w-4 text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
                   <span>Gerar com IA</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <input type="radio" name="imageOption" value="url" checked={imageOption === 'url'} onChange={() => setImageOption('url')} className="form-radio h-4 w-4 text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
                   <span>Usar URL</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer">
-                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
+                  <input type="radio" name="imageOption" value="none" checked={imageOption === 'none'} onChange={() => setImageOption('none')} className="form-radio h-4 w-4 text-fuchsia-500 bg-slate-700 border-slate-500 focus:ring-fuchsia-500" />
                   <span>Apenas Texto</span>
                 </label>
               </div>
@@ -334,7 +334,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                   value={imagePrompt}
                   onChange={(e) => setImagePrompt(e.target.value)}
                   placeholder="Opcional: Descreva a imagem. Ex: Um robô escrevendo em um laptop."
-                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                 />
               )}
               {imageOption === 'url' && (
@@ -343,7 +343,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="https://exemplo.com/imagem.jpg"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                  className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                   required
                 />
               )}
@@ -356,14 +356,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Plataforma de Destino
               </label>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
                 {platformDetails.map(({ name, icon }) => (
                   <button
                     key={name}
                     type="button"
                     onClick={() => setPlatform(name)}
-                    className={`p-3 rounded-lg flex flex-col items-center justify-center space-y-2 transition-all duration-200 border-2 ${
-                      platform === name ? 'bg-slate-700 border-fuchsia-500' : 'bg-slate-800 border-slate-600 hover:border-slate-500'
+                    className={`p-3 rounded-xl flex flex-col items-center justify-center space-y-2 transition-all duration-200 border-2 ${
+                      platform === name ? 'bg-slate-700/50 border-fuchsia-500 shadow-lg shadow-fuchsia-500/10' : 'bg-slate-800/80 border-slate-700 hover:border-slate-500 hover:bg-slate-700/50'
                     }`}
                     aria-pressed={platform === name}
                   >
@@ -374,14 +374,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </div>
             </div>
 
-            <div className="mb-2">
+            <div className="mb-4">
                 <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="font-semibold text-fuchsia-400 hover:text-fuchsia-300 transition-colors">
                     Opções Avançadas {isAdvancedOpen ? '▾' : '▸'}
                 </button>
             </div>
 
             {isAdvancedOpen && (
-              <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg mb-6 animate-fade-in space-y-6">
+              <div className="p-5 bg-slate-900/50 border border-slate-700 rounded-xl mb-6 animate-fade-in space-y-6">
                 <div>
                   <label htmlFor="profileUrl" className="block text-sm font-medium text-slate-300 mb-2">
                     Análise de Tom de Voz (URL do Perfil)
@@ -391,14 +391,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                         id="profileUrl"
                         value={selectedProfileUrl}
                         onChange={(e) => setSelectedProfileUrl(e.target.value)}
-                        className="flex-grow w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                        className="flex-grow w-full bg-slate-800 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                     >
                         <option value="">Nenhum perfil selecionado</option>
                         {savedProfiles.map(profile => (
                             <option key={profile.url} value={profile.url}>{profile.name}</option>
                         ))}
                     </select>
-                    <button type="button" onClick={() => setIsProfileModalOpen(true)} className="p-3 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors" aria-label="Gerenciar Perfis Salvos" title="Gerenciar Perfis Salvos">
+                    <button type="button" onClick={() => setIsProfileModalOpen(true)} className="p-3 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors" aria-label="Gerenciar Perfis Salvos" title="Gerenciar Perfis Salvos">
                         <ManageAccountsIcon />
                     </button>
                   </div>
@@ -412,7 +412,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                       id="tone"
                       value={tone}
                       onChange={(e) => setTone(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                      className="w-full bg-slate-800 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                   >
                       {toneOptions.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -432,7 +432,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                     </div>
                      <div className="relative flex items-start">
                       <div className="flex items-center h-5">
-                          <input id="creativityMode" type="checkbox" checked={creativityMode} onChange={(e) => setCreativityMode(e.target.checked)} className="focus:ring-fuchsia-500 h-4 w-4 text-fuchsia-600 border-slate-500 rounded bg-slate-700" />
+                          <input id="creativityMode" type="checkbox" checked={creativityMode} onChange={(e) => setCreativityMode(e.target.checked)} className="form-radio h-4 w-4 text-fuchsia-600 border-slate-500 rounded bg-slate-700 focus:ring-fuchsia-500" />
                       </div>
                       <div className="ml-3 text-sm">
                           <label htmlFor="creativityMode" className="font-medium text-slate-200">Criatividade Aumentada</label>
@@ -459,8 +459,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
 
   return (
-    <form onSubmit={handleSubmit} className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700">
-      <div className="flex justify-center mb-6 border-b border-slate-700">
+    <form onSubmit={handleSubmit} className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10">
+      <div className="flex justify-center mb-8 border-b border-slate-700">
           <button type="button" onClick={() => setMode('post')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'post' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
               Gerar Post
           </button>
@@ -478,7 +478,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         <button
           type="submit"
           disabled={!isFormValid()}
-          className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+          className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-xl shadow-lg text-base font-bold text-white bg-gradient-to-r from-fuchsia-500 to-cyan-500 hover:from-fuchsia-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-fuchsia-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         >
           {isLoading ? <Spinner /> : <SparklesIcon />}
           <span className="ml-2">{isLoading ? 'Gerando...' : 'Amplificar Conteúdo'}</span>
@@ -520,19 +520,19 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                         value={newProfileName}
                         onChange={(e) => setNewProfileName(e.target.value)}
                         placeholder="Nome do Perfil (Ex: Meu Blog)"
-                        className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                     />
                     <input
                         type="url"
                         value={newProfileUrl}
                         onChange={(e) => setNewProfileUrl(e.target.value)}
                         placeholder="URL do Perfil (Ex: https://meublog.com)"
-                        className="w-full bg-slate-900 border border-slate-600 rounded-md shadow-sm p-3 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                     />
                     {profileError && <p className="text-sm text-red-400">{profileError}</p>}
                     <button
                         onClick={handleAddProfile}
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-fuchsia-500"
+                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-fuchsia-500"
                     >
                         Salvar Perfil
                     </button>

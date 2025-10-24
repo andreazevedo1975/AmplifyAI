@@ -73,17 +73,17 @@ export const VideoOutput: React.FC<VideoOutputProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
-      <h2 className="text-xl font-bold mb-6 text-cyan-300 text-center">Seu vídeo gerado por IA está pronto!</h2>
+    <div className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
+      <h2 className="text-2xl font-bold mb-6 text-cyan-300 text-center">Seu vídeo gerado por IA está pronto!</h2>
       
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-slate-300 mb-2">PROMPT UTILIZADO</h3>
-        <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">PROMPT UTILIZADO</h3>
+        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
           <p className="text-slate-200">{data.theme}</p>
         </div>
       </div>
 
-      <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-inner mb-6">
+      <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner mb-6">
         <video 
           src={data.url} 
           controls 
@@ -93,7 +93,7 @@ export const VideoOutput: React.FC<VideoOutputProps> = ({ data }) => {
         </video>
       </div>
 
-      <div className="mt-8 pt-6 border-t border-slate-700">
+      <div className="mt-8 pt-6 border-t border-slate-700/50">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <a
               href={data.url}

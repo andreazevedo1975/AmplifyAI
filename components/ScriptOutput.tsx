@@ -18,19 +18,19 @@ export const ScriptOutput: React.FC<ScriptOutputProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-slate-800/60 p-6 rounded-lg shadow-lg border border-slate-700 animate-fade-in">
-      <h2 className="text-xl font-bold mb-6 text-amber-300 text-center">Seu roteiro de vídeo está pronto!</h2>
+    <div className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
+      <h2 className="text-2xl font-bold mb-6 text-yellow-300 text-center">Seu roteiro de vídeo está pronto!</h2>
       
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-slate-300 mb-2">TEMA DO ROTEIRO</h3>
-        <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">TEMA DO ROTEIRO</h3>
+        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
           <p className="text-slate-200">{data.title}</p>
         </div>
       </div>
 
       <div>
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold text-slate-300">ROTEIRO GERADO</h3>
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">ROTEIRO GERADO</h3>
           <button
             onClick={handleCopy}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200"
@@ -40,7 +40,7 @@ export const ScriptOutput: React.FC<ScriptOutputProps> = ({ data }) => {
             <span>{copied ? 'Copiado!' : 'Copiar Roteiro'}</span>
           </button>
         </div>
-        <div className="bg-slate-900/50 p-4 rounded-md border border-slate-700/50 max-h-96 overflow-y-auto custom-scrollbar">
+        <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 max-h-96 overflow-y-auto custom-scrollbar">
           <p className="text-slate-200 whitespace-pre-wrap">{data.script}</p>
         </div>
       </div>

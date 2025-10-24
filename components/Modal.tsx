@@ -16,9 +16,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
       className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       aria-modal="true"
       role="dialog"
+      onClick={onClose}
     >
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all animate-slide-up">
-        <header className="flex items-center justify-between p-4 border-b border-slate-700 flex-shrink-0">
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-900/80 backdrop-blur-lg border border-slate-100/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all animate-slide-up"
+      >
+        <header className="flex items-center justify-between p-4 border-b border-slate-700/50 flex-shrink-0">
           <h2 className="text-lg font-bold text-slate-200">{title}</h2>
           <button
             onClick={onClose}

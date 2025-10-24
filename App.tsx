@@ -12,6 +12,7 @@ import { decodeAndCreateWavBlob } from './services/audioService';
 import { addPost, getAllPosts, deletePost, clearPosts, replaceAllPosts } from './services/dbService';
 import { saveHistoryToDrive, loadHistoryFromDrive } from './services/googleDriveService';
 import type { PostData, AppError, VideoOutputData, AudioOutputData, DriveStatus } from './types';
+import { TestModeFooter } from './components/TestModeFooter';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -370,7 +371,7 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen font-sans">
+        <div className="min-h-screen font-sans pb-16 sm:pb-12">
             <Header />
             <main className="container mx-auto px-4 py-8 md:py-12">
                 <div className="max-w-4xl mx-auto space-y-12">
@@ -411,6 +412,7 @@ const App: React.FC = () => {
                     />
                 </div>
             </main>
+            <TestModeFooter />
         </div>
     );
 };

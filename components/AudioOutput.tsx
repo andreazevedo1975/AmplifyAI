@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import type { AudioOutputData } from '../types';
 import { DownloadIcon } from './icons/DownloadIcon';
@@ -9,21 +10,19 @@ interface AudioOutputProps {
 }
 
 const voiceNameMap: { [key: string]: string } = {
-  // Masculino
-  'gacrux': 'Gacrux (Masculino, Neutro)',
-  'algenib': 'Algenib (Masculino, Agudo)',
-  'fenrir': 'Fenrir (Masculino, Grave)',
-  'achernar': 'Achernar (Masculino, Profundo)',
-  'sadachbia': 'Sadachbia (Masculino, Neutro)',
-  'puck': 'Puck (Masculino, Enérgico)',
-  'zephyr': 'Zephyr (Masculino, Calmo)',
-  // Feminino
-  'callirrhoe': 'Callirrhoe (Feminino, Neutro)',
-  'charon': 'Charon (Feminino, Grave)',
-  'erinome': 'Erinome (Feminino, Enérgico)',
-  'kore': 'Kore (Feminino, Calmo)',
-  'laomedeia': 'Laomedeia (Feminino, Agudo)',
-  'alnilam': 'Alnilam (Feminino, Profundo)',
+  'erinome': 'Beatriz (Feminino, Enérgico)',
+  'achernar': 'Bruno (Masculino, Profundo)',
+  'callirrhoe': 'Camila (Feminino, Neutro)',
+  'sadachbia': 'Daniel (Masculino, Neutro)',
+  'alnilam': 'Fernanda (Feminino, Profundo)',
+  'puck': 'Gustavo (Masculino, Enérgico)',
+  'kore': 'Isabela (Feminino, Calmo)',
+  'laomedeia': 'Larissa (Feminino, Agudo)',
+  'gacrux': 'Lucas (Masculino, Neutro)',
+  'charon': 'Mariana (Feminino, Grave)',
+  'zephyr': 'Mateus (Masculino, Calmo)',
+  'fenrir': 'Ricardo (Masculino, Grave)',
+  'algenib': 'Thiago (Masculino, Agudo)',
 };
 
 

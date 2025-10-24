@@ -58,19 +58,19 @@ const toneOptions = [
 ];
 
 const voiceOptions = [
-  { id: 'gacrux', name: 'Gacrux (Masculino, Neutro)' },
-  { id: 'callirrhoe', name: 'Callirrhoe (Feminino, Neutro)' },
-  { id: 'algenib', name: 'Algenib (Masculino, Agudo)' },
-  { id: 'charon', name: 'Charon (Feminino, Grave)' },
-  { id: 'erinome', name: 'Erinome (Feminino, Enérgico)' },
-  { id: 'fenrir', name: 'Fenrir (Masculino, Grave)' },
-  { id: 'kore', name: 'Kore (Feminino, Calmo)' },
-  { id: 'achernar', name: 'Achernar (Masculino, Profundo)' },
-  { id: 'laomedeia', name: 'Laomedeia (Feminino, Agudo)' },
-  { id: 'alnilam', name: 'Alnilam (Feminino, Profundo)' },
-  { id: 'sadachbia', name: 'Sadachbia (Masculino, Neutro)' },
-  { id: 'puck', name: 'Puck (Masculino, Enérgico)' },
-  { id: 'zephyr', name: 'Zephyr (Masculino, Calmo)' },
+  { id: 'erinome', name: 'Beatriz (Feminino, Enérgico)' },
+  { id: 'achernar', name: 'Bruno (Masculino, Profundo)' },
+  { id: 'callirrhoe', name: 'Camila (Feminino, Neutro)' },
+  { id: 'sadachbia', name: 'Daniel (Masculino, Neutro)' },
+  { id: 'alnilam', name: 'Fernanda (Feminino, Profundo)' },
+  { id: 'puck', name: 'Gustavo (Masculino, Enérgico)' },
+  { id: 'kore', name: 'Isabela (Feminino, Calmo)' },
+  { id: 'laomedeia', name: 'Larissa (Feminino, Agudo)' },
+  { id: 'gacrux', name: 'Lucas (Masculino, Neutro)' },
+  { id: 'charon', name: 'Mariana (Feminino, Grave)' },
+  { id: 'zephyr', name: 'Mateus (Masculino, Calmo)' },
+  { id: 'fenrir', name: 'Ricardo (Masculino, Grave)' },
+  { id: 'algenib', name: 'Thiago (Masculino, Agudo)' },
 ];
 
 const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];

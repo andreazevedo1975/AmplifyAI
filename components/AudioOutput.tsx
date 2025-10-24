@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { AudioOutputData } from '../types';
 import { DownloadIcon } from './icons/DownloadIcon';
@@ -8,21 +9,21 @@ interface AudioOutputProps {
 }
 
 const voiceNameMap: { [key: string]: string } = {
-  // Feminino
-  'Kore': 'Kore (Feminino, Calmo)',
-  'Charon': 'Charon (Feminino, Grave)',
-  'Lyra': 'Lyra (Feminino, Agudo)',
-  'Aura': 'Aura (Feminino, Neutro)',
-  'Elara': 'Elara (Feminino, Enérgico)',
-  'Nyx': 'Nyx (Feminino, Profundo)',
   // Masculino
-  'Zephyr': 'Zephyr (Masculino, Calmo)',
-  'Puck': 'Puck (Masculino, Enérgico)',
-  'Fenrir': 'Fenrir (Masculino, Grave)',
-  'Leo': 'Leo (Masculino, Profundo)',
-  'Orion': 'Orion (Masculino, Neutro)',
-  'Caelus': 'Caelus (Masculino, Agudo)',
-  'Atlas': 'Atlas (Masculino, Neutro)',
+  'gacrux': 'Gacrux (Masculino, Neutro)',
+  'algenib': 'Algenib (Masculino, Agudo)',
+  'fenrir': 'Fenrir (Masculino, Grave)',
+  'achernar': 'Achernar (Masculino, Profundo)',
+  'sadachbia': 'Sadachbia (Masculino, Neutro)',
+  'puck': 'Puck (Masculino, Enérgico)',
+  'zephyr': 'Zephyr (Masculino, Calmo)',
+  // Feminino
+  'callirrhoe': 'Callirrhoe (Feminino, Neutro)',
+  'charon': 'Charon (Feminino, Grave)',
+  'erinome': 'Erinome (Feminino, Enérgico)',
+  'kore': 'Kore (Feminino, Calmo)',
+  'laomedeia': 'Laomedeia (Feminino, Agudo)',
+  'alnilam': 'Alnilam (Feminino, Profundo)',
 };
 
 

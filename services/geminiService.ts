@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { GeneratedContent } from '../types';
 
@@ -640,7 +641,7 @@ export const generateAudioFromText = async (text: string, voice: string, emotion
   }
 };
 
-export const generateVideoFromPrompt = async (prompt: string, imageBase64?: string): Promise<Blob> => {
+export const generateVideoFromPrompt = async (prompt: string, image?: { base64: string, mimeType: string }): Promise<Blob> => {
   const localAi = new GoogleGenAI({ apiKey: process.env.API_KEY! });
   try {
     
@@ -654,10 +655,10 @@ export const generateVideoFromPrompt = async (prompt: string, imageBase64?: stri
       }
     };
 
-    if (imageBase64) {
+    if (image && image.base64 && image.mimeType) {
       payload.image = {
-        imageBytes: imageBase64,
-        mimeType: 'image/jpeg',
+        imageBytes: image.base64,
+        mimeType: image.mimeType,
       };
     }
 

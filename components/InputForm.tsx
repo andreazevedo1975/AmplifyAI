@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
@@ -57,19 +58,19 @@ const toneOptions = [
 ];
 
 const voiceOptions = [
-  { id: 'Atlas', name: 'Atlas (Masculino, Neutro)' },
-  { id: 'Aura', name: 'Aura (Feminino, Neutro)' },
-  { id: 'Caelus', name: 'Caelus (Masculino, Agudo)' },
-  { id: 'Charon', name: 'Charon (Feminino, Grave)' },
-  { id: 'Elara', name: 'Elara (Feminino, Enérgico)' },
-  { id: 'Fenrir', name: 'Fenrir (Masculino, Grave)' },
-  { id: 'Kore', name: 'Kore (Feminino, Calmo)' },
-  { id: 'Leo', name: 'Leo (Masculino, Profundo)' },
-  { id: 'Lyra', name: 'Lyra (Feminino, Agudo)' },
-  { id: 'Nyx', name: 'Nyx (Feminino, Profundo)' },
-  { id: 'Orion', name: 'Orion (Masculino, Neutro)' },
-  { id: 'Puck', name: 'Puck (Masculino, Enérgico)' },
-  { id: 'Zephyr', name: 'Zephyr (Masculino, Calmo)' },
+  { id: 'gacrux', name: 'Gacrux (Masculino, Neutro)' },
+  { id: 'callirrhoe', name: 'Callirrhoe (Feminino, Neutro)' },
+  { id: 'algenib', name: 'Algenib (Masculino, Agudo)' },
+  { id: 'charon', name: 'Charon (Feminino, Grave)' },
+  { id: 'erinome', name: 'Erinome (Feminino, Enérgico)' },
+  { id: 'fenrir', name: 'Fenrir (Masculino, Grave)' },
+  { id: 'kore', name: 'Kore (Feminino, Calmo)' },
+  { id: 'achernar', name: 'Achernar (Masculino, Profundo)' },
+  { id: 'laomedeia', name: 'Laomedeia (Feminino, Agudo)' },
+  { id: 'alnilam', name: 'Alnilam (Feminino, Profundo)' },
+  { id: 'sadachbia', name: 'Sadachbia (Masculino, Neutro)' },
+  { id: 'puck', name: 'Puck (Masculino, Enérgico)' },
+  { id: 'zephyr', name: 'Zephyr (Masculino, Calmo)' },
 ];
 
 const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];

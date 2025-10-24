@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -134,7 +135,7 @@ const App: React.FC = () => {
     };
     
     const handleGenerateVideo = async (options: any) => {
-        let imageBase64: string | undefined = undefined;
+        let imagePayload: { base64: string, mimeType: string } | undefined = undefined;
         if (options.imageInput) {
             try {
                  // @ts-ignore
@@ -156,19 +157,28 @@ const App: React.FC = () => {
                 }
 
                 const response = await fetch(options.imageInput);
+                if (!response.ok) {
+                    throw new Error(`Falha ao buscar a imagem da URL: ${response.statusText}`);
+                }
                 const blob = await response.blob();
-                imageBase64 = await new Promise((resolve, reject) => {
+                const mimeType = blob.type;
+                if (!mimeType.startsWith('image/')) {
+                    throw new Error(`O arquivo na URL não é uma imagem válida. Tipo encontrado: ${mimeType}`);
+                }
+                const imageBase64 = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
+                imagePayload = { base64: imageBase64, mimeType };
             } catch (e) {
-                throw new Error("[VIDEO_GEN_ERROR] Falha ao processar a URL da imagem fornecida.");
+                const errorMessage = (e instanceof Error) ? e.message : String(e);
+                throw new Error(`[VIDEO_GEN_ERROR] Falha ao processar a URL da imagem fornecida. Detalhes: ${errorMessage}`);
             }
         }
 
-        const videoBlob = await generateVideoFromPrompt(options.theme, imageBase64);
+        const videoBlob = await generateVideoFromPrompt(options.theme, imagePayload);
         const videoUrl = URL.createObjectURL(videoBlob);
         
         const newVideoOutput: VideoOutputData = {

@@ -8,6 +8,8 @@ export interface PostData {
   platform: string;
   profileUrl: string;
   creativityMode?: boolean;
+  thinkingMode?: boolean;
+  tone?: string;
 }
 
 export interface AppError {

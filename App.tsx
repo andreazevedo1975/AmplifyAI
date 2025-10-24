@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -89,7 +88,7 @@ const App: React.FC = () => {
         } else if (msg.includes('[VEO_KEY_ERROR]')) {
             errorObject.title = "Chave de API Inválida para Vídeo";
             errorObject.message = "A chave de API selecionada não tem permissão para usar o serviço de vídeo ou não foi encontrada.";
-            errorObject.suggestion = "A janela para seleção de chaves foi reaberta. Por favor, escolha uma chave válida e tente gerar novamente.";
+            errorObject.suggestion = "A janela de seleção foi reaberta. Por favor, escolha uma chave habilitada para a 'Generative AI API' em seu projeto Google Cloud e tente novamente.";
             // Proactively open the key selection dialog to streamline the user's recovery path.
             // @ts-ignore
             if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
@@ -107,7 +106,7 @@ const App: React.FC = () => {
     setError(errorObject);
   }
 
-  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean) => {
+  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => {
     setIsThinking(thinkingMode);
     setLoadingMessage(thinkingMode
         ? "A IA está em modo de análise profunda... isso pode levar mais tempo."
@@ -120,11 +119,12 @@ const App: React.FC = () => {
       if (imageInput && isUrl(imageInput)) {
         imageUrl = imageInput;
       } else {
-        const imagePrompt = imageInput || `Uma imagem impactante e relevante para um post de ${platform} sobre: "${theme}"`;
-        imageUrl = await generateImage(imagePrompt, platform);
+        // The imageInput is a prompt (either user-provided or the default generated in InputForm).
+        // InputForm now guarantees a prompt is provided if a text-to-image generation is intended.
+        imageUrl = await generateImage(imageInput, platform);
       }
       
-      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode);
+      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode, tone);
 
       const newPost: PostData = {
         id: Date.now().toString(),
@@ -134,7 +134,9 @@ const App: React.FC = () => {
         hashtags: content.hashtags,
         platform,
         profileUrl,
+        thinkingMode,
         creativityMode,
+        tone,
       };
 
       await addPost(newPost);
@@ -174,7 +176,7 @@ const App: React.FC = () => {
     }
   }
 
-  const handleGenerate = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean) => {
+  const handleGenerate = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => {
     setIsLoading(true);
     setError(null);
     setPostData(null);
@@ -183,7 +185,7 @@ const App: React.FC = () => {
     if (platform === 'video') {
       await handleGenerateVideo(theme, imageInput);
     } else {
-      await handleGeneratePost(theme, imageInput, platform, profileUrl, thinkingMode, creativityMode);
+      await handleGeneratePost(theme, imageInput, platform, profileUrl, thinkingMode, creativityMode, tone);
     }
     
     setIsLoading(false);
@@ -207,7 +209,7 @@ const App: React.FC = () => {
   };
 
   const handleRegenerateHistoryItem = (post: PostData) => {
-    handleGenerate(post.theme, '', post.platform, post.profileUrl, false, post.creativityMode || false);
+    handleGenerate(post.theme, '', post.platform, post.profileUrl, post.thinkingMode || false, post.creativityMode || false, post.tone || 'Envolvente');
   };
 
   const handleClearHistory = () => {

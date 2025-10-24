@@ -1,10 +1,13 @@
-
 import React, { useState } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
+import { generateImage } from '../services/geminiService';
+import { Spinner } from './Spinner';
+import { CloseIcon } from './icons/CloseIcon';
+
 
 interface InputFormProps {
-  onGenerate: (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean) => void;
+  onGenerate: (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => void;
   isLoading: boolean;
 }
 
@@ -23,24 +26,93 @@ const platformDetails = [
   { name: 'YouTube', icon: <YouTubeIcon /> },
 ];
 
+const tones = ['Envolvente', 'Profissional', 'Engraçado', 'Inspirador', 'Informativo', 'Casual'];
+const videoStyles = ['Cinemático', 'Time-lapse', 'Animação', 'Preto e Branco', 'Filmagem de Drone', 'Retrô', 'Documentário', 'Abstrato', 'Infográfico Animado', 'Render 3D', 'Vaporwave', 'Fantasia Épica', 'Stop Motion', 'Minimalista', 'Arte de Papel', 'Estilo Vlog'];
+
+
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
   const [mode, setMode] = useState<'post' | 'video'>('post');
   const [theme, setTheme] = useState('');
   const [imageInput, setImageInput] = useState('');
-  const [platform, setPlatform] = useState('Instagram');
+  const [platform, setPlatform] = useState(platformDetails[0].name);
   const [profileUrl, setProfileUrl] = useState('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
+  const [tone, setTone] = useState('Envolvente');
+  const [videoStyle, setVideoStyle] = useState('Cinemático');
+  const [videoLength, setVideoLength] = useState('');
+  
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   const [profileUrlState, setProfileUrlState] = useState<{
     status: 'idle' | 'valid' | 'invalid' | 'warning';
     message: string | null;
   }>({ status: 'idle', message: null });
 
+  const isUrl = (text: string): boolean => {
+    try {
+      new URL(text);
+      return text.startsWith('http');
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const handleRemovePreview = () => {
+    setPreviewUrl(null);
+    setImageInput('');
+    setPreviewError(null);
+    setIsPreviewLoading(false);
+  };
+  
+  const handleGeneratePreview = async () => {
+      if (!imageInput.trim() || isUrl(imageInput)) return;
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+      setPreviewUrl(null);
+      try {
+        const imageUrl = await generateImage(imageInput, platform);
+        setPreviewUrl(imageUrl);
+      } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Falha ao gerar a pré-visualização.";
+          if (errorMessage.includes('[SAFETY_BLOCK]')) {
+             setPreviewError("A imagem foi bloqueada por segurança. Tente um prompt diferente.");
+          } else {
+             setPreviewError("Não foi possível gerar a pré-visualização. Tente novamente.");
+          }
+          console.error(error);
+      } finally {
+          setIsPreviewLoading(false);
+      }
+  };
+
+  const handleUrlBlur = () => {
+    if (imageInput && isUrl(imageInput)) {
+      setPreviewUrl(imageInput);
+      setPreviewError(null);
+      // We don't set loading true here, the browser handles it.
+      // Error handling is done on the <img> tag itself.
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (theme.trim() && profileUrlState.status !== 'invalid') {
-      const finalPlatform = mode === 'video' ? 'video' : platform;
-      onGenerate(theme, imageInput, finalPlatform, profileUrl, thinkingMode, creativityMode);
+    if (!theme.trim()) return;
+
+    if (mode === 'video') {
+      const videoPrompt = `${theme}. Estilo: ${videoStyle}. ${videoLength ? `Duração desejada: ${videoLength}.` : ''}`.trim();
+      onGenerate(videoPrompt, imageInput, 'video', '', false, false, '');
+    } else {
+      if (profileUrlState.status !== 'invalid') {
+        let finalImageInput = previewUrl || imageInput;
+        // If no image input is provided (neither prompt, nor URL, nor preview), create a default prompt.
+        if (!finalImageInput.trim()) {
+          finalImageInput = `Gere uma imagem para um post de ${platform} com o tema "${theme}". O tom de voz da legenda será "${tone}", então a imagem deve refletir esse sentimento. Por exemplo, para 'Inspirador', a imagem deve ser motivacional. Para 'Profissional', algo mais sóbrio e corporativo. Para 'Engraçado', algo divertido.`;
+        }
+        onGenerate(theme, finalImageInput, platform, profileUrl, thinkingMode, creativityMode, tone);
+      }
     }
   };
 
@@ -106,13 +178,13 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       
       <div>
         <label htmlFor="theme" className="block text-sm font-semibold text-slate-300 mb-2">
-          1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a ideia para o vídeo'}
+          1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
         </label>
         <textarea
           id="theme"
           rows={3}
           className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition"
-          placeholder={mode === 'post' ? "Ex: Os benefícios da inteligência artificial para pequenas empresas" : "Ex: Um astronauta surfando em um anel de Saturno"}
+          placeholder={mode === 'post' ? "Ex: Os benefícios da inteligência artificial para pequenas empresas" : "Ex: Um astronauta surfando em um anel de Saturno, com nebulosas coloridas ao fundo"}
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
           required
@@ -123,20 +195,68 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         <label htmlFor="image-input" className="block text-sm font-semibold text-slate-300 mb-2">
           2. {mode === 'post' ? 'Imagem (Opcional)' : 'Imagem de Referência (Opcional)'}
         </label>
-        <input
-          type="text"
-          id="image-input"
-          className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition"
-          placeholder={mode === 'post' ? "Deixe em branco para a IA criar, ou insira um prompt/URL" : "Insira o URL de uma imagem para guiar a IA"}
-          value={imageInput}
-          onChange={(e) => setImageInput(e.target.value)}
-        />
+        <div className="flex items-center gap-3">
+            <input
+              type="text"
+              id="image-input"
+              className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
+              placeholder={mode === 'post' ? "Deixe em branco, insira um prompt ou URL" : "Insira o URL de uma imagem para guiar a IA"}
+              value={imageInput}
+              onChange={(e) => setImageInput(e.target.value)}
+              onBlur={handleUrlBlur}
+              disabled={!!previewUrl || isPreviewLoading}
+            />
+            {mode === 'post' && !isUrl(imageInput) && (
+              <button 
+                type="button"
+                onClick={handleGeneratePreview}
+                disabled={!imageInput.trim() || !!previewUrl || isPreviewLoading}
+                className="py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  Pré-visualizar
+              </button>
+            )}
+        </div>
         <p className="text-xs text-slate-500 mt-1">
           {mode === 'post' ? 'Forneça um prompt para a IA ou o URL de uma imagem existente.' : 'Forneça o URL de uma imagem para servir de ponto de partida para o vídeo.'}
         </p>
+
+        {(isPreviewLoading || previewError || previewUrl) && (
+            <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
+                {isPreviewLoading && (
+                    <div className="flex items-center justify-center text-slate-400">
+                        <Spinner />
+                        <span className="ml-2">Gerando pré-visualização...</span>
+                    </div>
+                )}
+                {previewError && (
+                     <p className="text-sm text-red-400 text-center flex items-center justify-center gap-1.5"><WarningIcon /> {previewError}</p>
+                )}
+                {previewUrl && !previewError && (
+                    <div className="relative group w-full aspect-video">
+                        <img 
+                            src={previewUrl} 
+                            alt="Pré-visualização da imagem" 
+                            className="rounded-md object-contain w-full h-full"
+                            onLoad={() => { setIsPreviewLoading(false); setPreviewError(null); }}
+                            onError={() => { setPreviewError("Não foi possível carregar a imagem do URL."); setPreviewUrl(null); }}
+                        />
+                         <button 
+                            type="button" 
+                            onClick={handleRemovePreview}
+                            className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white transition-opacity opacity-0 group-hover:opacity-100"
+                            aria-label="Remover pré-visualização"
+                        >
+                            <CloseIcon />
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+
       </div>
 
-      {mode === 'post' && (
+      {mode === 'post' ? (
         <>
             <div>
               <label htmlFor="profile-url" className="block text-sm font-semibold text-slate-300 mb-2">
@@ -169,10 +289,37 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                   )}
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
+                4. Tom de Voz da Legenda
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {tones.map((t) => (
+                  <div key={t}>
+                    <input
+                      type="radio"
+                      id={`tone-${t}`}
+                      name="tone"
+                      value={t}
+                      checked={tone === t}
+                      onChange={(e) => setTone(e.target.value)}
+                      className="sr-only peer"
+                    />
+                    <label
+                      htmlFor={`tone-${t}`}
+                      className="w-full flex items-center justify-center p-3 text-slate-300 bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent peer-checked:border-fuchsia-500 peer-checked:text-fuchsia-300 peer-checked:bg-fuchsia-900/30 hover:bg-slate-700"
+                    >
+                      <span className="text-sm font-medium text-center">{t}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
             
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
-                4. Modos de Geração (Opcional)
+                5. Modos de Geração (Opcional)
               </label>
               <div className="space-y-4">
                 <div className="flex items-center justify-between bg-slate-900/50 border border-slate-600 rounded-md p-3">
@@ -229,7 +376,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
-                5. Plataforma de Destino
+                6. Plataforma de Destino
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                 {platformDetails.map((p) => (
@@ -255,12 +402,57 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </div>
             </div>
         </>
+      ) : (
+        <>
+            <div>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
+                3. Estilo do Vídeo
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {videoStyles.map((style) => (
+                  <div key={style}>
+                    <input
+                      type="radio"
+                      id={`style-${style}`}
+                      name="video-style"
+                      value={style}
+                      checked={videoStyle === style}
+                      onChange={(e) => setVideoStyle(e.target.value)}
+                      className="sr-only peer"
+                    />
+                    <label
+                      htmlFor={`style-${style}`}
+                      className="w-full flex items-center justify-center p-3 text-slate-300 bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 border-2 border-transparent peer-checked:border-cyan-500 peer-checked:text-cyan-300 peer-checked:bg-cyan-900/30 hover:bg-slate-700"
+                    >
+                      <span className="text-sm font-medium text-center">{style}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label htmlFor="video-length" className="block text-sm font-semibold text-slate-300 mb-2">
+                4. Duração Desejada (Opcional)
+              </label>
+              <input
+                type="text"
+                id="video-length"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-cyan-500 focus:border-cyan-500 text-slate-200 placeholder-slate-500 p-3 transition"
+                placeholder="Ex: 5 segundos, clipe curto"
+                value={videoLength}
+                onChange={(e) => setVideoLength(e.target.value)}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                A IA tentará seguir a duração sugerida.
+              </p>
+            </div>
+        </>
       )}
 
 
       <button
         type="submit"
-        disabled={isLoading || !theme.trim() || profileUrlState.status === 'invalid'}
+        disabled={isLoading || !theme.trim() || (mode === 'post' && profileUrlState.status === 'invalid')}
         className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 ${
             mode === 'post' 
             ? 'bg-fuchsia-600 hover:bg-fuchsia-700 focus:ring-fuchsia-500 disabled:bg-slate-600'

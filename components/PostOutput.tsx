@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import type { PostData } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
@@ -703,7 +702,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         const errorMessage = error instanceof Error ? error.message : "Falha ao gerar o vídeo completo.";
         
         if (errorMessage.includes('[VEO_KEY_ERROR]')) {
-          setMediaError("Chave de API inválida. A janela de seleção foi reaberta para você. Por favor, escolha uma chave válida e tente novamente.");
+          setMediaError("Chave de API inválida. A janela de seleção foi reaberta. Por favor, escolha uma chave habilitada para a 'Generative AI API' em seu projeto e tente novamente.");
           setIsVeoKeySelected(false);
           // Proactively open the key selection dialog to streamline the fix.
           // @ts-ignore

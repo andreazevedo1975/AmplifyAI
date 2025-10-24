@@ -218,17 +218,19 @@ export const generateImage = async (prompt: string, platform: string): Promise<s
   }
 };
 
-export const generateContentWithSearch = async (theme: string, platform: string, profileUrl: string, isThinkingMode: boolean, isCreativityMode: boolean): Promise<GeneratedContent> => {
+export const generateContentWithSearch = async (theme: string, platform: string, profileUrl: string, isThinkingMode: boolean, isCreativityMode: boolean, tone: string): Promise<GeneratedContent> => {
   const specifics = getPlatformSpecifics(platform);
   
-  let prompt = `Você é um especialista em marketing de mídia social. Sua tarefa é criar um post para a plataforma "${platform}" sobre o tema "${theme}".`;
+  let prompt = `Você é um especialista em marketing de mídia social. Sua tarefa é criar um post para a plataforma "${platform}" sobre o tema "${theme}".
+  
+**Tom de Voz Principal:** Adote um tom **${tone}**. Este é o tom de voz mais importante a seguir. Se um perfil for analisado, tente combinar o tom do perfil com este tom solicitado.`;
 
   if (profileUrl) {
-    prompt += `\n\n**Contexto Adicional:** Analise o tom de voz, estilo e tópicos comuns do perfil no seguinte URL: ${profileUrl}. Adapte a legenda e o tom para se alinharem com o conteúdo existente neste perfil. Se não for possível acessar ou analisar o URL, prossiga com seu conhecimento geral de especialista.`;
+    prompt += `\n\n**Contexto Adicional:** Analise o tom de voz, estilo e tópicos comuns do perfil no seguinte URL: ${profileUrl}. Adapte a legenda e o tom para se alinharem com o conteúdo existente neste perfil, sempre mantendo o tom principal de "${tone}". Se não for possível acessar ou analisar o URL, prossiga com seu conhecimento geral de especialista.`;
   }
   
   if (isThinkingMode) {
-    prompt += `\n\n**MODO DE PENSAMENTO AVANÇADO ATIVADO:** Utilize suas capacidades de raciocínio profundo para uma análise exaustiva e detalhada do tema. Gere insights únicos e uma perspectiva original.`;
+    prompt += `\n\n**MODO DE ANÁLISE PROFUNDA ATIVADO:** Utilize suas capacidades de raciocínio profundo para uma análise exaustiva e detalhada do tema. Gere insights únicos e uma perspectiva original.`;
   }
 
   if (isCreativityMode) {
@@ -239,7 +241,7 @@ export const generateContentWithSearch = async (theme: string, platform: string,
     
     **Instruções Detalhadas para ${platform}:**
     1.  **Pesquise:** Use a busca para encontrar informações atuais, dados e insights relevantes sobre "${theme}".
-    2.  **Crie a Legenda:** Siga estas regras para a legenda:
+    2.  **Crie a Legenda:** Siga estas regras para a legenda, sempre priorizando o Tom de Voz Principal (${tone}) definido acima.
         ${specifics.contentInstructions}
     3.  **Crie as Hashtags:** Siga estas regras para as hashtags:
         ${specifics.hashtagStrategy}

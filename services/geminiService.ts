@@ -218,7 +218,7 @@ export const generateImage = async (prompt: string, platform: string): Promise<s
   }
 };
 
-export const generateContentWithSearch = async (theme: string, platform: string, profileUrl: string, isThinkingMode: boolean, isCreativityMode: boolean, tone: string): Promise<GeneratedContent> => {
+export const generateContentWithSearch = async (theme: string, platform: string, profileUrl: string, isThinkingMode: boolean, isCreativityMode: boolean, tone: string, isFocusMode: boolean): Promise<GeneratedContent> => {
   const specifics = getPlatformSpecifics(platform);
   
   let prompt = `Você é um especialista em marketing de mídia social. Sua tarefa é criar um post para a plataforma "${platform}" sobre o tema "${theme}".
@@ -235,6 +235,10 @@ export const generateContentWithSearch = async (theme: string, platform: string,
 
   if (isCreativityMode) {
     prompt += `\n\n**MODO CRIATIVIDADE ATIVADO:** Pense fora da caixa. Gere um conceito ousado, experimental e inesperado. Surpreenda com uma abordagem única e altamente criativa para o tema. Ignore convenções se necessário para criar algo verdadeiramente original.`;
+  }
+
+  if (isFocusMode) {
+    prompt += `\n\n**MODO DE FOCO PROFUNDO ATIVADO:** Concentre-se estritamente no tema. Evite tangentes, analogias e informações que não sejam diretamente sobre o tópico principal. Gere uma resposta densa e específica.`;
   }
 
   prompt += `

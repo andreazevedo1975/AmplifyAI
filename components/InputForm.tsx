@@ -7,7 +7,19 @@ import { CloseIcon } from './icons/CloseIcon';
 
 
 interface InputFormProps {
-  onGenerate: (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => void;
+  onGenerate: (options: {
+      mode: 'post' | 'video' | 'script';
+      theme: string;
+      imageInput: string;
+      platform: string;
+      profileUrl: string;
+      thinkingMode: boolean;
+      creativityMode: boolean;
+      focusMode: boolean;
+      tone: string;
+      scriptTitle?: string;
+      scriptDescription?: string;
+  }) => void;
   isLoading: boolean;
 }
 
@@ -31,20 +43,24 @@ const videoStyles = ['Cinemático', 'Time-lapse', 'Animação', 'Preto e Branco'
 
 
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
-  const [mode, setMode] = useState<'post' | 'video'>('post');
+  const [mode, setMode] = useState<'post' | 'video' | 'script'>('post');
   const [theme, setTheme] = useState('');
   const [imageInput, setImageInput] = useState('');
   const [platform, setPlatform] = useState(platformDetails[0].name);
   const [profileUrl, setProfileUrl] = useState('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [tone, setTone] = useState('Envolvente');
   const [videoStyle, setVideoStyle] = useState('Cinemático');
   const [videoLength, setVideoLength] = useState('');
+  const [scriptTitle, setScriptTitle] = useState('');
+  const [scriptDescription, setScriptDescription] = useState('');
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isAutoGeneratingImage, setIsAutoGeneratingImage] = useState(false);
 
   const [profileUrlState, setProfileUrlState] = useState<{
     status: 'idle' | 'valid' | 'invalid' | 'warning';
@@ -97,22 +113,63 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!theme.trim()) return;
+    
+    const baseOptions = {
+        theme,
+        imageInput,
+        platform,
+        profileUrl,
+        thinkingMode,
+        creativityMode,
+        focusMode,
+        tone,
+        scriptTitle,
+        scriptDescription
+    };
 
     if (mode === 'video') {
+      if (!theme.trim()) return;
       const videoPrompt = `${theme}. Estilo: ${videoStyle}. ${videoLength ? `Duração desejada: ${videoLength}.` : ''}`.trim();
-      onGenerate(videoPrompt, imageInput, 'video', '', false, false, '');
-    } else {
-      if (profileUrlState.status !== 'invalid') {
-        let finalImageInput = previewUrl || imageInput;
-        // If no image input is provided (neither prompt, nor URL, nor preview), create a default prompt.
-        if (!finalImageInput.trim()) {
-          finalImageInput = `Gere uma imagem para um post de ${platform} com o tema "${theme}". O tom de voz da legenda será "${tone}", então a imagem deve refletir esse sentimento. Por exemplo, para 'Inspirador', a imagem deve ser motivacional. Para 'Profissional', algo mais sóbrio e corporativo. Para 'Engraçado', algo divertido.`;
+      onGenerate({ ...baseOptions, mode: 'video', theme: videoPrompt });
+
+    } else if (mode === 'post') {
+        if (!theme.trim() || profileUrlState.status === 'invalid') return;
+        
+        let imageUrl = previewUrl;
+        
+        // If user entered a valid URL, it's already set as previewUrl on blur.
+        // If we don't have a URL, we must generate one from a prompt (or empty input).
+        if (!imageUrl) {
+            setIsAutoGeneratingImage(true);
+            setPreviewError(null);
+            try {
+                const prompt = imageInput.trim()
+                    ? imageInput
+                    : `Gere uma imagem para um post de ${platform} com o tema "${theme}". O tom de voz da legenda será "${tone}", então a imagem deve refletir esse sentimento. Por exemplo, para 'Inspirador', a imagem deve ser motivacional. Para 'Profissional', algo mais sóbrio e corporativo. Para 'Engraçado', algo divertido.`;
+                
+                imageUrl = await generateImage(prompt, platform);
+            } catch (error) {
+                console.error("Error auto-generating image:", error);
+                const errorMessage = error instanceof Error ? error.message : "Falha ao gerar a imagem.";
+                if (errorMessage.includes('[SAFETY_BLOCK]')) {
+                    setPreviewError("A imagem foi bloqueada por segurança. Tente um prompt diferente.");
+                } else {
+                    setPreviewError("Não foi possível gerar a imagem automaticamente. Tente novamente.");
+                }
+                setIsAutoGeneratingImage(false);
+                return; // Stop submission on image generation failure
+            } finally {
+                setIsAutoGeneratingImage(false);
+            }
         }
-        onGenerate(theme, finalImageInput, platform, profileUrl, thinkingMode, creativityMode, tone);
-      }
+        
+        onGenerate({ ...baseOptions, mode: 'post', imageInput: imageUrl || '' });
+
+    } else if (mode === 'script') {
+        if (!scriptTitle.trim()) return;
+        onGenerate({ ...baseOptions, mode: 'script' });
     }
   };
 
@@ -172,89 +229,129 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 >
                     Gerar Vídeo
                 </button>
+                 <button
+                    type="button"
+                    onClick={() => setMode('script')}
+                    className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'script' ? 'bg-amber-500 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}
+                >
+                    Gerar Roteiro
+                </button>
             </div>
         </div>
       </div>
       
-      <div>
-        <label htmlFor="theme" className="block text-sm font-semibold text-slate-300 mb-2">
-          1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
-        </label>
-        <textarea
-          id="theme"
-          rows={3}
-          className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition"
-          placeholder={mode === 'post' ? "Ex: Os benefícios da inteligência artificial para pequenas empresas" : "Ex: Um astronauta surfando em um anel de Saturno, com nebulosas coloridas ao fundo"}
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          required
-        />
-      </div>
-
-      <div>
-        <label htmlFor="image-input" className="block text-sm font-semibold text-slate-300 mb-2">
-          2. {mode === 'post' ? 'Imagem (Opcional)' : 'Imagem de Referência (Opcional)'}
-        </label>
-        <div className="flex items-center gap-3">
-            <input
-              type="text"
-              id="image-input"
-              className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-              placeholder={mode === 'post' ? "Deixe em branco, insira um prompt ou URL" : "Insira o URL de uma imagem para guiar a IA"}
-              value={imageInput}
-              onChange={(e) => setImageInput(e.target.value)}
-              onBlur={handleUrlBlur}
-              disabled={!!previewUrl || isPreviewLoading}
-            />
-            {mode === 'post' && !isUrl(imageInput) && (
-              <button 
-                type="button"
-                onClick={handleGeneratePreview}
-                disabled={!imageInput.trim() || !!previewUrl || isPreviewLoading}
-                className="py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                >
-                  Pré-visualizar
-              </button>
-            )}
-        </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {mode === 'post' ? 'Forneça um prompt para a IA ou o URL de uma imagem existente.' : 'Forneça o URL de uma imagem para servir de ponto de partida para o vídeo.'}
-        </p>
-
-        {(isPreviewLoading || previewError || previewUrl) && (
-            <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
-                {isPreviewLoading && (
-                    <div className="flex items-center justify-center text-slate-400">
-                        <Spinner />
-                        <span className="ml-2">Gerando pré-visualização...</span>
-                    </div>
-                )}
-                {previewError && (
-                     <p className="text-sm text-red-400 text-center flex items-center justify-center gap-1.5"><WarningIcon /> {previewError}</p>
-                )}
-                {previewUrl && !previewError && (
-                    <div className="relative group w-full aspect-video">
-                        <img 
-                            src={previewUrl} 
-                            alt="Pré-visualização da imagem" 
-                            className="rounded-md object-contain w-full h-full"
-                            onLoad={() => { setIsPreviewLoading(false); setPreviewError(null); }}
-                            onError={() => { setPreviewError("Não foi possível carregar a imagem do URL."); setPreviewUrl(null); }}
-                        />
-                         <button 
-                            type="button" 
-                            onClick={handleRemovePreview}
-                            className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white transition-opacity opacity-0 group-hover:opacity-100"
-                            aria-label="Remover pré-visualização"
-                        >
-                            <CloseIcon />
-                        </button>
-                    </div>
-                )}
+      {mode === 'script' ? (
+        <>
+            <div>
+                <label htmlFor="script-title" className="block text-sm font-semibold text-slate-300 mb-2">
+                  1. Título do Vídeo
+                </label>
+                <input
+                  id="script-title"
+                  type="text"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-slate-200 placeholder-slate-500 p-3 transition"
+                  placeholder="Ex: Como a IA está revolucionando a música"
+                  value={scriptTitle}
+                  onChange={(e) => setScriptTitle(e.target.value)}
+                  required
+                />
             </div>
-        )}
+            <div>
+                <label htmlFor="script-description" className="block text-sm font-semibold text-slate-300 mb-2">
+                  2. Descrição / Tópicos (Opcional)
+                </label>
+                <textarea
+                  id="script-description"
+                  rows={3}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 text-slate-200 placeholder-slate-500 p-3 transition"
+                  placeholder="Ex: Abordar o uso de IA na composição, produção e o futuro dos artistas."
+                  value={scriptDescription}
+                  onChange={(e) => setScriptDescription(e.target.value)}
+                />
+            </div>
+        </>
+      ) : (
+      <>
+        <div>
+          <label htmlFor="theme" className="block text-sm font-semibold text-slate-300 mb-2">
+            1. {mode === 'post' ? 'Descreva a ideia para a IA' : 'Descreva a cena principal e os elementos'}
+          </label>
+          <textarea
+            id="theme"
+            rows={3}
+            className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition"
+            placeholder={mode === 'post' ? "Ex: Os benefícios da inteligência artificial para pequenas empresas" : "Ex: Um astronauta surfando em um anel de Saturno, com nebulosas coloridas ao fundo"}
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            required
+          />
+        </div>
 
-      </div>
+        <div>
+          <label htmlFor="image-input" className="block text-sm font-semibold text-slate-300 mb-2">
+            2. {mode === 'post' ? 'Imagem (Opcional)' : 'Imagem de Referência (Opcional)'}
+          </label>
+          <div className="flex items-center gap-3">
+              <input
+                type="text"
+                id="image-input"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md shadow-sm focus:ring-fuchsia-500 focus:border-fuchsia-500 text-slate-200 placeholder-slate-500 p-3 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
+                placeholder={mode === 'post' ? "Deixe em branco, insira um prompt ou URL" : "Insira o URL de uma imagem para guiar a IA"}
+                value={imageInput}
+                onChange={(e) => setImageInput(e.target.value)}
+                onBlur={handleUrlBlur}
+                disabled={!!previewUrl || isPreviewLoading}
+              />
+              {mode === 'post' && !isUrl(imageInput) && (
+                <button 
+                  type="button"
+                  onClick={handleGeneratePreview}
+                  disabled={!imageInput.trim() || !!previewUrl || isPreviewLoading}
+                  className="py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Pré-visualizar
+                </button>
+              )}
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            {mode === 'post' ? 'Forneça um prompt para a IA ou o URL de uma imagem existente.' : 'Forneça o URL de uma imagem para servir de ponto de partida para o vídeo.'}
+          </p>
+
+          {(isPreviewLoading || previewError || previewUrl) && (
+              <div className="mt-4 p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
+                  {isPreviewLoading && (
+                      <div className="flex items-center justify-center text-slate-400">
+                          <Spinner />
+                          <span className="ml-2">Gerando pré-visualização...</span>
+                      </div>
+                  )}
+                  {previewError && (
+                       <p className="text-sm text-red-400 text-center flex items-center justify-center gap-1.5"><WarningIcon /> {previewError}</p>
+                  )}
+                  {previewUrl && !previewError && (
+                      <div className="relative group w-full aspect-video">
+                          <img 
+                              src={previewUrl} 
+                              alt="Pré-visualização da imagem" 
+                              className="rounded-md object-contain w-full h-full"
+                              onLoad={() => { setIsPreviewLoading(false); setPreviewError(null); }}
+                              onError={() => { setPreviewError("Não foi possível carregar a imagem do URL."); setPreviewUrl(null); }}
+                          />
+                           <button 
+                              type="button" 
+                              onClick={handleRemovePreview}
+                              className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white transition-opacity opacity-0 group-hover:opacity-100"
+                              aria-label="Remover pré-visualização"
+                          >
+                              <CloseIcon />
+                          </button>
+                      </div>
+                  )}
+              </div>
+          )}
+        </div>
+      </>
+      )}
 
       {mode === 'post' ? (
         <>
@@ -370,6 +467,30 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                     />
                   </button>
                 </div>
+                <div className="flex items-center justify-between bg-slate-900/50 border border-slate-600 rounded-md p-3">
+                  <div>
+                    <h4 className="font-semibold text-slate-200">Ativar Modo de Foco Profundo</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                      Instrui a IA a se ater estritamente ao tema, evitando criatividade e tangentes, para uma resposta mais direta e específica.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFocusMode(!focusMode)}
+                    className={`${
+                      focusMode ? 'bg-amber-500' : 'bg-slate-700'
+                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-800`}
+                    role="switch"
+                    aria-checked={focusMode}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        focusMode ? 'translate-x-5' : 'translate-x-0'
+                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -402,7 +523,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </div>
             </div>
         </>
-      ) : (
+      ) : mode === 'video' ? (
         <>
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
@@ -447,19 +568,23 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               </p>
             </div>
         </>
-      )}
-
+      ) : null}
 
       <button
         type="submit"
-        disabled={isLoading || !theme.trim() || (mode === 'post' && profileUrlState.status === 'invalid')}
+        disabled={isLoading || isAutoGeneratingImage || (mode === 'post' && !theme.trim()) || (mode === 'video' && !theme.trim()) || (mode === 'script' && !scriptTitle.trim()) || (mode === 'post' && profileUrlState.status === 'invalid')}
         className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 ${
             mode === 'post' 
             ? 'bg-fuchsia-600 hover:bg-fuchsia-700 focus:ring-fuchsia-500 disabled:bg-slate-600'
-            : 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 disabled:bg-slate-600'
+            : mode === 'video'
+            ? 'bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500 disabled:bg-slate-600'
+            : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 disabled:bg-slate-600'
         }`}
       >
-        {isLoading ? 'Gerando...' : (mode === 'post' ? 'Gerar Post com IA ✨' : 'Gerar Vídeo com IA 🎬')}
+        {isAutoGeneratingImage ? 'Gerando Imagem...' : isLoading ? 'Gerando...' : 
+            mode === 'post' ? 'Gerar Post com IA ✨' : 
+            mode === 'video' ? 'Gerar Vídeo com IA 🎬' : 
+            'Gerar Roteiro com IA 📝'}
       </button>
     </form>
   );

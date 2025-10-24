@@ -3,12 +3,13 @@ import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { PostOutput } from './components/PostOutput';
 import { Spinner } from './components/Spinner';
-import { generateContentWithSearch, generateImage, generateVideoFromPrompt } from './services/geminiService';
+import { generateContentWithSearch, generateImage, generateVideoFromPrompt, generateVideoScript } from './services/geminiService';
 import { addPost, getAllPosts, deletePost, clearPosts } from './services/dbService';
-import type { PostData, AppError } from './types';
+import type { PostData, AppError, VideoOutputData } from './types';
 import { WarningIcon } from './components/icons/WarningIcon';
 import { History } from './components/History';
 import { VideoOutput } from './components/VideoOutput';
+import { ScriptOutput } from './components/ScriptOutput';
 
 // Helper to convert any image URL (including data URLs) to a base64 string without prefix
 async function imageUrlToBase64(url: string): Promise<string> {
@@ -28,7 +29,8 @@ async function imageUrlToBase64(url: string): Promise<string> {
 
 const App: React.FC = () => {
   const [postData, setPostData] = useState<PostData | null>(null);
-  const [videoOutput, setVideoOutput] = useState<{ url: string; theme: string } | null>(null);
+  const [videoOutput, setVideoOutput] = useState<VideoOutputData | null>(null);
+  const [scriptOutput, setScriptOutput] = useState<{ title: string; script: string } | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
@@ -106,7 +108,7 @@ const App: React.FC = () => {
     setError(errorObject);
   }
 
-  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => {
+  const handleGeneratePost = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string, focusMode: boolean) => {
     setIsThinking(thinkingMode);
     setLoadingMessage(thinkingMode
         ? "A IA está em modo de análise profunda... isso pode levar mais tempo."
@@ -124,7 +126,7 @@ const App: React.FC = () => {
         imageUrl = await generateImage(imageInput, platform);
       }
       
-      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode, tone);
+      const content = await generateContentWithSearch(theme, platform, profileUrl, thinkingMode, creativityMode, tone, focusMode);
 
       const newPost: PostData = {
         id: Date.now().toString(),
@@ -136,6 +138,7 @@ const App: React.FC = () => {
         profileUrl,
         thinkingMode,
         creativityMode,
+        focusMode,
         tone,
       };
 
@@ -148,7 +151,7 @@ const App: React.FC = () => {
     }
   };
   
-  const handleGenerateVideo = async (theme: string, imageInput: string) => {
+  const handleGenerateVideo = async (theme: string, imageInput: string, platform: string) => {
       // @ts-ignore
       if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
         // @ts-ignore
@@ -169,23 +172,62 @@ const App: React.FC = () => {
 
         const videoBlob = await generateVideoFromPrompt(theme, imageBase64);
         const videoUrl = URL.createObjectURL(videoBlob);
-        setVideoOutput({ url: videoUrl, theme });
+        setVideoOutput({ url: videoUrl, theme, platform });
 
     } catch (err) {
         handleError(err);
     }
   }
-
-  const handleGenerate = async (theme: string, imageInput: string, platform: string, profileUrl: string, thinkingMode: boolean, creativityMode: boolean, tone: string) => {
+  
+  const handleGenerateScript = async (title: string, description: string) => {
     setIsLoading(true);
     setError(null);
     setPostData(null);
     setVideoOutput(null);
+    setScriptOutput(null);
+    setLoadingMessage("IA está escrevendo seu roteiro...");
 
-    if (platform === 'video') {
-      await handleGenerateVideo(theme, imageInput);
-    } else {
-      await handleGeneratePost(theme, imageInput, platform, profileUrl, thinkingMode, creativityMode, tone);
+    try {
+        const script = await generateVideoScript(title, description);
+        setScriptOutput({ title, script });
+    } catch (err) {
+        handleError(err);
+    }
+    
+    setIsLoading(false);
+    setLoadingMessage('');
+  };
+
+  const handleGenerate = async (options: {
+      mode: 'post' | 'video' | 'script';
+      theme: string;
+      imageInput: string;
+      platform: string;
+      profileUrl: string;
+      thinkingMode: boolean;
+      creativityMode: boolean;
+      focusMode: boolean;
+      tone: string;
+      scriptTitle?: string;
+      scriptDescription?: string;
+  }) => {
+    setIsLoading(true);
+    setError(null);
+    setPostData(null);
+    setVideoOutput(null);
+    setScriptOutput(null);
+
+    switch (options.mode) {
+        case 'video':
+            await handleGenerateVideo(options.theme, options.imageInput, options.platform);
+            break;
+        case 'script':
+            await handleGenerateScript(options.scriptTitle || '', options.scriptDescription || '');
+            break;
+        case 'post':
+        default:
+            await handleGeneratePost(options.theme, options.imageInput, options.platform, options.profileUrl, options.thinkingMode, options.creativityMode, options.tone, options.focusMode);
+            break;
     }
     
     setIsLoading(false);
@@ -197,6 +239,7 @@ const App: React.FC = () => {
     setPostData(post);
     setError(null);
     setVideoOutput(null);
+    setScriptOutput(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -209,7 +252,17 @@ const App: React.FC = () => {
   };
 
   const handleRegenerateHistoryItem = (post: PostData) => {
-    handleGenerate(post.theme, '', post.platform, post.profileUrl, post.thinkingMode || false, post.creativityMode || false, post.tone || 'Envolvente');
+    handleGenerate({
+      mode: 'post',
+      theme: post.theme, 
+      imageInput: '', 
+      platform: post.platform, 
+      profileUrl: post.profileUrl, 
+      thinkingMode: post.thinkingMode || false, 
+      creativityMode: post.creativityMode || false, 
+      focusMode: post.focusMode || false,
+      tone: post.tone || 'Envolvente'
+    });
   };
 
   const handleClearHistory = () => {
@@ -259,6 +312,12 @@ const App: React.FC = () => {
           {postData && !isLoading && (
             <div className="mt-12">
               <PostOutput data={postData} />
+            </div>
+          )}
+          
+          {scriptOutput && !isLoading && (
+            <div className="mt-12">
+                <ScriptOutput data={scriptOutput} />
             </div>
           )}
 

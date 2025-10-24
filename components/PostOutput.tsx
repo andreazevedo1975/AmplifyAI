@@ -16,6 +16,7 @@ import { AudioIcon } from './icons/AudioIcon';
 import { VideoIcon } from './icons/VideoIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
+import { ShareIcon } from './icons/ShareIcon';
 
 // Helper function to decode base64
 function decode(base64: string): Uint8Array {
@@ -148,6 +149,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   // Final video state
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [finalVideoBlob, setFinalVideoBlob] = useState<Blob | null>(null);
+  const [isPublishingVideo, setIsPublishingVideo] = useState(false);
   
   const [isVeoKeySelected, setIsVeoKeySelected] = useState<boolean>(false);
   const isExternalUrl = data.imageUrl.startsWith('http');
@@ -736,6 +738,46 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         setMediaError("Funcionalidade de seleção de chave não disponível.");
     }
   };
+  
+  const handlePublishFullVideo = async () => {
+    if (!finalVideoBlob || isPublishingVideo) return;
+    setIsPublishingVideo(true);
+
+    const titleMatch = data.caption.match(/\*\*TÍTULO:\*\*\s*\n([\s\S]*?)\n\n\*\*DESCRIÇÃO:\*\*/);
+    const title = titleMatch ? titleMatch[1].trim() : data.theme;
+    const textToShare = `Confira meu novo vídeo para o ${data.platform}: ${title}`;
+    const file = new File([finalVideoBlob], `video_completo-${getCleanThemeForFilename()}.webm`, { type: 'video/webm' });
+
+    const attemptShare = async (): Promise<'SHARED' | 'CANCELLED' | 'FALLBACK'> => {
+        try {
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: title,
+                    text: textToShare,
+                });
+                return 'SHARED';
+            }
+            return 'FALLBACK';
+        } catch (err) {
+            if (err.name === 'AbortError') return 'CANCELLED';
+            console.error('Web Share API for video failed:', err);
+            return 'FALLBACK';
+        }
+    };
+    
+    attemptShare().then(status => {
+        if (status === 'FALLBACK') {
+            navigator.clipboard.writeText(textToShare);
+            alert(`Seu navegador não suporta compartilhamento direto de vídeo.\n\nO título do vídeo foi copiado. Redirecionando para ${data.platform} para que você possa fazer o upload manual.`);
+            
+            const platformUrls: { [key: string]: string } = { 'YouTube': 'https://studio.youtube.com/' };
+            const url = platformUrls[data.platform] || 'https://youtube.com';
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+        setIsPublishingVideo(false);
+    });
+  };
 
 
   const handleCopyTag = (tag: string) => {
@@ -746,7 +788,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
   const SmallSpinner = () => (
     <svg 
-      className="animate-spin h-5 w-5 text-cyan-400"
+      className="animate-spin h-5 w-5 text-slate-400"
       xmlns="http://www.w3.org/2000/svg" 
       fill="none" 
       viewBox="0 0 24 24"
@@ -980,13 +1022,23 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 <div className="text-center">
                     <p className="font-semibold text-lg text-green-400 mb-4">{mediaGenerationStep}</p>
                     <video controls src={finalVideoUrl} className="w-full rounded-md bg-black mb-4"></video>
-                    <button 
-                        onClick={() => finalVideoBlob && downloadBlob(finalVideoBlob, `video_completo-${getCleanThemeForFilename()}.webm`)} 
-                        className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-                    >
-                        <DownloadIcon />
-                        <span>Salvar Vídeo Completo (.webm)</span>
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button 
+                            onClick={() => finalVideoBlob && downloadBlob(finalVideoBlob, `video_completo-${getCleanThemeForFilename()}.webm`)} 
+                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                        >
+                            <DownloadIcon />
+                            <span>Salvar Vídeo (.webm)</span>
+                        </button>
+                        <button
+                            onClick={handlePublishFullVideo}
+                            disabled={isPublishingVideo}
+                            className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-70 disabled:cursor-wait"
+                        >
+                            <ShareIcon />
+                            <span>{isPublishingVideo ? 'Publicando...' : 'Publicar Vídeo'}</span>
+                        </button>
+                    </div>
                 </div>
               ) : (
                 <button onClick={handleCreateFullVideo} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-sky-500 hover:from-cyan-700 hover:to-sky-600">
@@ -1005,7 +1057,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                 disabled={isSharing}
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-700 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-fuchsia-500 transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
             >
-                {isSharing ? 'Preparando...' : `Postar no ${data.platform}`}
+                {isSharing ? <SmallSpinner /> : <ShareIcon />}
+                <span className="ml-2">{isSharing ? 'Preparando...' : `Postar no ${data.platform}`}</span>
             </button>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1014,7 +1067,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     disabled={isSaving}
                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <SaveIcon />
+                    {isSaving ? <SmallSpinner /> : <SaveIcon />}
                     <span>{saveButtonText}</span>
                 </button>
                 <button
@@ -1022,7 +1075,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     disabled={isDownloadingPdf}
                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <PdfIcon />
+                    {isDownloadingPdf ? <SmallSpinner /> : <PdfIcon />}
                     <span>{isDownloadingPdf ? 'Gerando...' : 'Salvar PDF'}</span>
                 </button>
                 <button
@@ -1030,7 +1083,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     disabled={isDownloadingDocx}
                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <DocxIcon />
+                    {isDownloadingDocx ? <SmallSpinner /> : <DocxIcon />}
                     <span>{isDownloadingDocx ? 'Gerando...' : 'Salvar DOCX'}</span>
                 </button>
                 <button
@@ -1038,7 +1091,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     disabled={isSavingAsImage}
                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <ImageIcon />
+                    {isSavingAsImage ? <SmallSpinner /> : <ImageIcon />}
                     <span>{isSavingAsImage ? 'Gerando...' : 'Salvar Imagem'}</span>
                 </button>
                 <button
@@ -1046,7 +1099,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
                     disabled={isSavingToDrive}
                     className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-200 bg-slate-700/50 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <GoogleDriveIcon />
+                    {isSavingToDrive ? <SmallSpinner /> : <GoogleDriveIcon />}
                     <span>{isSavingToDrive ? 'Preparando...' : 'Salvar no Drive'}</span>
                 </button>
             </div>

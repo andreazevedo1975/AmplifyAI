@@ -9,6 +9,7 @@ export interface PostData {
   profileUrl: string;
   creativityMode?: boolean;
   thinkingMode?: boolean;
+  focusMode?: boolean;
   tone?: string;
 }
 
@@ -21,4 +22,10 @@ export interface AppError {
 export interface GeneratedContent {
   caption: string;
   hashtags: string;
+}
+
+export interface VideoOutputData {
+  url: string;
+  theme: string;
+  platform: string;
 }

@@ -29,3 +29,12 @@ export interface VideoOutputData {
   theme: string;
   platform: string;
 }
+
+export interface AudioOutputData {
+  url: string;
+  text: string;
+  voice: string;
+  blob: Blob;
+  emotion?: string;
+  style?: string;
+}

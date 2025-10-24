@@ -4,11 +4,13 @@ import { InputForm } from './components/InputForm';
 import { PostOutput } from './components/PostOutput';
 import { VideoOutput } from './components/VideoOutput';
 import { ScriptOutput } from './components/ScriptOutput';
+import { AudioOutput } from './components/AudioOutput';
 import { History } from './components/History';
 import { WarningIcon } from './components/icons/WarningIcon';
-import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt } from './services/geminiService';
+import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt, generateAudioFromText } from './services/geminiService';
+import { decodeAndCreateWavBlob } from './services/audioService';
 import { addPost, getAllPosts, deletePost, clearPosts } from './services/dbService';
-import type { PostData, AppError, VideoOutputData } from './types';
+import type { PostData, AppError, VideoOutputData, AudioOutputData } from './types';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +18,7 @@ const App: React.FC = () => {
     const [generatedPost, setGeneratedPost] = useState<PostData | null>(null);
     const [generatedVideo, setGeneratedVideo] = useState<VideoOutputData | null>(null);
     const [generatedScript, setGeneratedScript] = useState<{ title: string, script: string } | null>(null);
+    const [generatedAudio, setGeneratedAudio] = useState<AudioOutputData | null>(null);
     const [history, setHistory] = useState<PostData[]>([]);
     
     const outputRef = useRef<HTMLDivElement>(null);
@@ -35,7 +38,7 @@ const App: React.FC = () => {
     };
 
     const handleGenerate = async (options: {
-        mode: 'post' | 'video' | 'script';
+        mode: 'post' | 'video' | 'script' | 'audio';
         theme: string;
         imageInput: string;
         platform: string;
@@ -46,12 +49,17 @@ const App: React.FC = () => {
         tone: string;
         scriptTitle?: string;
         scriptDescription?: string;
+        audioText?: string;
+        audioVoice?: string;
+        audioEmotion?: string;
+        audioStyle?: string;
     }) => {
         setIsLoading(true);
         setError(null);
         setGeneratedPost(null);
         setGeneratedVideo(null);
         setGeneratedScript(null);
+        setGeneratedAudio(null);
 
         try {
             if (options.mode === 'post') {
@@ -70,6 +78,8 @@ const App: React.FC = () => {
                 await handleGenerateVideo(options);
             } else if (options.mode === 'script') {
                 await handleGenerateScript(options);
+            } else if (options.mode === 'audio') {
+                await handleGenerateAudio(options);
             }
         } catch (err) {
             console.error("Generation failed:", err);
@@ -177,6 +187,21 @@ const App: React.FC = () => {
             script: script,
         });
     };
+
+    const handleGenerateAudio = async (options: any) => {
+        const base64Audio = await generateAudioFromText(options.audioText, options.audioVoice, options.audioEmotion, options.audioStyle);
+        const audioBlob = await decodeAndCreateWavBlob(base64Audio);
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        setGeneratedAudio({
+            url: audioUrl,
+            text: options.audioText,
+            voice: options.audioVoice,
+            emotion: options.audioEmotion,
+            style: options.audioStyle,
+            blob: audioBlob,
+        });
+    };
     
     const parseError = (err: Error): AppError => {
         const message = err.message || "Ocorreu um erro desconhecido.";
@@ -237,6 +262,7 @@ const App: React.FC = () => {
         setGeneratedPost(post);
         setGeneratedVideo(null);
         setGeneratedScript(null);
+        setGeneratedAudio(null);
         setError(null);
         scrollToOutput();
     };
@@ -299,6 +325,7 @@ const App: React.FC = () => {
                         {generatedPost && <PostOutput data={generatedPost} />}
                         {generatedVideo && <VideoOutput data={generatedVideo} />}
                         {generatedScript && <ScriptOutput data={generatedScript} />}
+                        {generatedAudio && <AudioOutput data={generatedAudio} />}
                     </div>
 
                     <History 

@@ -12,7 +12,7 @@ import { TrashIcon } from './icons/TrashIcon';
 
 interface InputFormProps {
   onGenerate: (options: {
-      mode: 'post' | 'video' | 'script';
+      mode: 'post' | 'video' | 'script' | 'audio';
       theme: string;
       imageInput: string;
       platform: string;
@@ -23,6 +23,10 @@ interface InputFormProps {
       tone: string;
       scriptTitle?: string;
       scriptDescription?: string;
+      audioText?: string;
+      audioVoice?: string;
+      audioEmotion?: string;
+      audioStyle?: string;
   }) => void;
   isLoading: boolean;
 }
@@ -52,8 +56,19 @@ const toneOptions = [
   'Casual', 'Formal', 'Urgente', 'Empático', 'Ousado', 'Minimalista'
 ];
 
+const voiceOptions = [
+  { id: 'Kore', name: 'Kore (Feminino, Calmo)' },
+  { id: 'Charon', name: 'Charon (Feminino, Grave)' },
+  { id: 'Zephyr', name: 'Zephyr (Masculino, Calmo)' },
+  { id: 'Puck', name: 'Puck (Masculino, Enérgico)' },
+  { id: 'Fenrir', name: 'Fenrir (Masculino, Grave)' },
+];
+
+const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];
+const styleOptions = ['Conversacional', 'Narrador', 'Rápido', 'Lento', 'Sussurrado'];
+
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
-  const [mode, setMode] = useState<'post' | 'video' | 'script'>('post');
+  const [mode, setMode] = useState<'post' | 'video' | 'script' | 'audio'>('post');
   const [theme, setTheme] = useState('');
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageOption, setImageOption] = useState<'prompt' | 'url' | 'none'>('prompt');
@@ -68,6 +83,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
   const [scriptTitle, setScriptTitle] = useState('');
   const [scriptDescription, setScriptDescription] = useState('');
+
+  const [audioText, setAudioText] = useState('');
+  const [audioVoice, setAudioVoice] = useState('Kore');
+  const [audioEmotion, setAudioEmotion] = useState('Amigável');
+  const [audioStyle, setAudioStyle] = useState('Conversacional');
   
   const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
   const [ideaError, setIdeaError] = useState<string | null>(null);
@@ -137,7 +157,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     setIdeaError(null);
     try {
       const idea = await generateInspirationalIdea(category);
-      setTheme(idea);
+      if (mode === 'audio') {
+        setAudioText(idea);
+      } else {
+        setTheme(idea);
+      }
     } catch (error) {
       console.error("Error generating idea:", error);
       setIdeaError("Não foi possível gerar a ideia. Tente novamente.");
@@ -171,6 +195,10 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       tone,
       scriptTitle,
       scriptDescription,
+      audioText,
+      audioVoice,
+      audioEmotion,
+      audioStyle,
     });
   };
 
@@ -178,6 +206,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     if (isLoading) return false;
     if (mode === 'script') {
         return scriptTitle.trim() !== '' && scriptDescription.trim() !== '';
+    }
+    if (mode === 'audio') {
+        return audioText.trim() !== '';
     }
     if (theme.trim() === '') return false;
     if (imageOption === 'url' && (!imageUrl.trim() || !isUrl(imageUrl))) return false;
@@ -187,6 +218,78 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   
   const renderModeSpecificFields = () => {
     switch(mode) {
+      case 'audio':
+        return (
+          <>
+            <div className="mb-6">
+              <label htmlFor="audioText" className="block text-sm font-medium text-slate-300 mb-2">
+                Texto para Narração
+              </label>
+              <textarea
+                id="audioText"
+                value={audioText}
+                onChange={(e) => setAudioText(e.target.value)}
+                placeholder="Ex: Descubra como a inteligência artificial pode transformar suas ideias em conteúdo viral..."
+                className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                rows={5}
+                required
+              />
+               <div className="mt-3 text-center">
+                 <p className="text-sm text-slate-400 mb-2">Sem ideias? Deixe a IA te inspirar!</p>
+                 <div className="flex justify-center items-center gap-2 flex-wrap">
+                    {isGeneratingIdea ? <Spinner /> : (
+                      <>
+                        <button type="button" onClick={() => handleGenerateIdea('quote')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Citação</button>
+                        <button type="button" onClick={() => handleGenerateIdea('reflection')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Reflexão</button>
+                      </>
+                    )}
+                 </div>
+                 {ideaError && <p className="text-xs text-red-400 mt-2">{ideaError}</p>}
+              </div>
+            </div>
+             <div className="mb-6">
+                <label htmlFor="audioVoice" className="block text-sm font-medium text-slate-300 mb-2">
+                    Voz da IA (Ator)
+                </label>
+                <select
+                    id="audioVoice"
+                    value={audioVoice}
+                    onChange={(e) => setAudioVoice(e.target.value)}
+                    className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                >
+                    {voiceOptions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label htmlFor="audioEmotion" className="block text-sm font-medium text-slate-300 mb-2">
+                        Tom Emocional
+                    </label>
+                    <select
+                        id="audioEmotion"
+                        value={audioEmotion}
+                        onChange={(e) => setAudioEmotion(e.target.value)}
+                        className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    >
+                        {emotionOptions.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="audioStyle" className="block text-sm font-medium text-slate-300 mb-2">
+                        Estilo da Fala
+                    </label>
+                    <select
+                        id="audioStyle"
+                        value={audioStyle}
+                        onChange={(e) => setAudioStyle(e.target.value)}
+                        className="w-full bg-slate-900/70 border-2 border-slate-700 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    >
+                        {styleOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+            </div>
+          </>
+        );
       case 'video':
         return (
           <>
@@ -469,6 +572,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
           </button>
           <button type="button" onClick={() => setMode('script')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'script' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
               Gerar Roteiro
+          </button>
+           <button type="button" onClick={() => setMode('audio')} className={`px-4 py-2 text-sm font-medium transition-colors ${mode === 'audio' ? 'border-b-2 border-fuchsia-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+              Gerar Áudio
           </button>
       </div>
 

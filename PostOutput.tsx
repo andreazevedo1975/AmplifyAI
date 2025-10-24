@@ -20,6 +20,7 @@ import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
 import { RegenerateIcon } from './icons/RegenerateIcon';
 import { UseIcon } from './icons/UseIcon';
+import { Spinner } from './Spinner';
 
 // Helper to convert any image URL (including data URLs) to a base64 string without prefix
 async function imageUrlToBase64(url: string): Promise<string> {
@@ -286,4 +287,61 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
       alert("Falha ao gerar o DOCX.");
     } finally {
       setIsDownloadingDocx(false);
-    
+    }
+  };
+
+  return (
+    <div className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
+        <h2 className="text-2xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">Post Gerado para {data.platform}</h2>
+        <p className="text-center text-slate-400 mb-6 text-sm">Tema: {data.theme}</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-lg">
+                <img src={currentPost.imageUrl} alt={`Imagem para ${currentPost.theme}`} className="w-full h-full object-cover" />
+            </div>
+
+            <div className="flex flex-col space-y-4 h-full">
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Legenda</h3>
+                        <button onClick={() => handleCopy(currentPost.caption, 'caption')} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200">
+                           <CopyIcon /> {copied === 'caption' ? 'Copiado!' : 'Copiar'}
+                        </button>
+                    </div>
+                    <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50 max-h-60 overflow-y-auto custom-scrollbar">
+                        <p className="text-slate-200 whitespace-pre-wrap">{currentPost.caption}</p>
+                    </div>
+                </div>
+
+                 <div>
+                    <div className="flex justify-between items-center mb-2">
+                         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Hashtags</h3>
+                         <button onClick={() => handleCopy(currentPost.hashtags, 'hashtags')} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200">
+                           <CopyIcon /> {copied === 'hashtags' ? 'Copiado!' : 'Copiar'}
+                         </button>
+                    </div>
+                     <div className="bg-slate-900/70 p-4 rounded-xl border border-slate-700/50">
+                        <p className="text-fuchsia-400 break-words">{currentPost.hashtags}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div className="mt-8 pt-6 border-t border-slate-700/50">
+            <h3 className="text-center font-bold text-slate-300 mb-4">Opções de Exportação e Ações</h3>
+            <div className="flex flex-wrap justify-center gap-3">
+                <button onClick={handleSavePost} disabled={isSaving} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    <SaveIcon /> {saveButtonText}
+                </button>
+                 <button onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    {isDownloadingPdf ? <Spinner/> : <PdfIcon />} Salvar .pdf
+                </button>
+                <button onClick={handleDownloadDocx} disabled={isDownloadingDocx} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    {isDownloadingDocx ? <Spinner/> : <DocxIcon />} Salvar .docx
+                </button>
+            </div>
+        </div>
+
+    </div>
+  );
+};

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -10,8 +9,9 @@ import { History } from './components/History';
 import { WarningIcon } from './components/icons/WarningIcon';
 import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt, generateAudioFromText } from './services/geminiService';
 import { decodeAndCreateWavBlob } from './services/audioService';
-import { addPost, getAllPosts, deletePost, clearPosts } from './services/dbService';
-import type { PostData, AppError, VideoOutputData, AudioOutputData } from './types';
+import { addPost, getAllPosts, deletePost, clearPosts, replaceAllPosts } from './services/dbService';
+import { saveHistoryToDrive, loadHistoryFromDrive } from './services/googleDriveService';
+import type { PostData, AppError, VideoOutputData, AudioOutputData, DriveStatus } from './types';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -21,8 +21,10 @@ const App: React.FC = () => {
     const [generatedScript, setGeneratedScript] = useState<{ title: string, script: string } | null>(null);
     const [generatedAudio, setGeneratedAudio] = useState<AudioOutputData | null>(null);
     const [history, setHistory] = useState<PostData[]>([]);
+    const [driveStatus, setDriveStatus] = useState<DriveStatus | null>(null);
     
     const outputRef = useRef<HTMLDivElement>(null);
+    const driveStatusTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         const loadHistory = async () => {
@@ -31,6 +33,25 @@ const App: React.FC = () => {
         };
         loadHistory();
     }, []);
+
+    useEffect(() => {
+        if (driveStatus) {
+            if (driveStatusTimeoutRef.current) {
+                clearTimeout(driveStatusTimeoutRef.current);
+            }
+            if (driveStatus.type !== 'info') {
+                 driveStatusTimeoutRef.current = window.setTimeout(() => {
+                    setDriveStatus(null);
+                }, 5000);
+            }
+        }
+        return () => {
+            if (driveStatusTimeoutRef.current) {
+                clearTimeout(driveStatusTimeoutRef.current);
+            }
+        };
+    }, [driveStatus]);
+
 
     const scrollToOutput = () => {
         setTimeout(() => {
@@ -308,6 +329,46 @@ const App: React.FC = () => {
         handleGenerate(options);
     };
 
+    const handleSaveHistoryToDrive = async () => {
+        if (history.length === 0) {
+            setDriveStatus({ type: 'info', message: 'Seu histórico está vazio. Nada para salvar.' });
+            return;
+        }
+        setDriveStatus({ type: 'info', message: 'Iniciando o salvamento no Google Drive...' });
+        try {
+            const fileName = await saveHistoryToDrive(history);
+            setDriveStatus({ type: 'success', message: `Histórico salvo como "${fileName}" no seu Google Drive!` });
+        } catch (error) {
+            console.error("Drive save error:", error);
+            const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
+            setDriveStatus({ type: 'error', message: `Falha ao salvar: ${errorMessage}` });
+        }
+    };
+
+    const handleLoadHistoryFromDrive = async () => {
+        setDriveStatus({ type: 'info', message: 'Aguardando seleção de arquivo no Google Drive...' });
+        try {
+            const loadedHistory = await loadHistoryFromDrive();
+            if (loadedHistory && loadedHistory.length > 0) {
+                 if (window.confirm(`Arquivo encontrado com ${loadedHistory.length} posts. Deseja substituir seu histórico local com este conteúdo? Esta ação não pode ser desfeita.`)) {
+                    await replaceAllPosts(loadedHistory);
+                    const sortedHistory = loadedHistory.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+                    setHistory(sortedHistory);
+                    setGeneratedPost(null);
+                    setDriveStatus({ type: 'success', message: 'Histórico carregado e substituído com sucesso!' });
+                } else {
+                    setDriveStatus({ type: 'info', message: 'Operação de carregamento cancelada pelo usuário.' });
+                }
+            } else {
+                setDriveStatus({ type: 'info', message: 'Nenhum histórico foi carregado.' });
+            }
+        } catch (error) {
+            console.error("Drive load error:", error);
+            const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
+            setDriveStatus({ type: 'error', message: `Falha ao carregar: ${errorMessage}` });
+        }
+    };
+
     return (
         <div className="min-h-screen font-sans">
             <Header />
@@ -344,6 +405,9 @@ const App: React.FC = () => {
                         onDelete={handleDeleteHistory} 
                         onRegenerate={handleRegenerate}
                         onClear={handleClearHistory}
+                        onSaveToDrive={handleSaveHistoryToDrive}
+                        onLoadFromDrive={handleLoadHistoryFromDrive}
+                        driveStatus={driveStatus}
                     />
                 </div>
             </main>

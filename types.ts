@@ -38,3 +38,8 @@ export interface AudioOutputData {
   emotion?: string;
   style?: string;
 }
+
+export interface DriveStatus {
+  type: 'info' | 'success' | 'error';
+  message: string;
+}

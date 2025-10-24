@@ -4,38 +4,15 @@ import { CopyIcon } from './icons/CopyIcon';
 import { SaveIcon } from './icons/SaveIcon';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, ImageRun } from 'docx';
-import html2canvas from 'html2canvas';
 import { PdfIcon } from './icons/PdfIcon';
 import { DocxIcon } from './icons/DocxIcon';
-import { ImageIcon } from './icons/ImageIcon';
-import { suggestHashtags, generateVideoScript, generateAudioFromText, generateVideoFromPrompt, generateMultiplePostVariations } from '../services/geminiService';
-import { decodeAndCreateWavBlob } from '../services/audioService';
-import { SparklesIcon } from './icons/SparklesIcon';
-import JSZip from 'jszip';
-import { GoogleDriveIcon } from './icons/GoogleDriveIcon';
+import { generateAudioFromText, generateVideoFromPrompt } from './services/geminiService';
+import { decodeAndCreateWavBlob } from './services/audioService';
 import { AudioIcon } from './icons/AudioIcon';
 import { VideoIcon } from './icons/VideoIcon';
-import { WarningIcon } from './icons/WarningIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { ShareIcon } from './icons/ShareIcon';
-import { RegenerateIcon } from './icons/RegenerateIcon';
-import { UseIcon } from './icons/UseIcon';
 import { Spinner } from './Spinner';
-
-// Helper to convert any image URL (including data URLs) to a base64 string without prefix
-async function imageUrlToBase64(url: string): Promise<string> {
-    if (url.startsWith('data:')) {
-        return url.split(',')[1];
-    }
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
 
 
 interface PostOutputProps {
@@ -47,17 +24,7 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
-  const [isSavingAsImage, setIsSavingAsImage] = useState(false);
-  const [isSavingToDrive, setIsSavingToDrive] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
   const [saveButtonText, setSaveButtonText] = useState('Salvar Post');
-  const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
-  const [isSuggesting, setIsSuggesting] = useState(false);
-  const [suggestionError, setSuggestionError] = useState<string | null>(null);
-  const [copiedTag, setCopiedTag] = useState<string | null>(null);
-  const [videoScript, setVideoScript] = useState<string | null>(null);
-  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  const [scriptError, setScriptError] = useState<string | null>(null);
   
   const [isGeneratingMedia, setIsGeneratingMedia] = useState(false);
   const [mediaGenerationStep, setMediaGenerationStep] = useState<string | null>(null);

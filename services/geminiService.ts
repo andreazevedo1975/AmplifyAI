@@ -474,7 +474,7 @@ export const suggestHashtags = async (baseHashtags: string, platform: string): P
     2. Palavras-chave mais específicas ou de nicho para atingir um público focado.
     3. Hashtags de comunidade ou eventos, se aplicável.
     
-    Cada hashtag sugerida deve começar com '#'.
+    Retorne sua resposta como um array JSON de strings, onde cada string é uma hashtag começando com '#'.
   `;
 
   try {
@@ -698,8 +698,8 @@ export const suggestImageOptimization = async (theme: string): Promise<string> =
     - dramatic: Para temas de ação, esportes ou paisagens épicas, com alto contraste.
     - none: Se nenhum filtro parecer adequado.
 
-    Sua resposta DEVE SER APENAS UMA ÚNICA PALAVRA da lista acima. NÃO inclua nenhuma outra explicação ou formatação.
-    Exemplo de resposta: vintage
+    Sua resposta DEVE SER um objeto JSON com uma única chave "filter", e o valor deve ser APENAS UMA ÚNICA PALAVRA da lista acima.
+    Exemplo de resposta: {"filter": "vintage"}
   `;
 
   try {
@@ -712,9 +712,27 @@ export const suggestImageOptimization = async (theme: string): Promise<string> =
         throw new Error("[SAFETY_BLOCK] A sugestão de filtro foi bloqueada por motivos de segurança.");
     }
     
-    const text = response.text.trim().toLowerCase();
+    // Prioritize parsing the response as JSON if possible
+    const text = response.text.trim();
+    try {
+      const startIndex = text.indexOf('{');
+      const endIndex = text.lastIndexOf('}');
+      if (startIndex !== -1 && endIndex !== -1) {
+        const jsonString = text.substring(startIndex, endIndex + 1);
+        const result = JSON.parse(jsonString);
+        const suggestedFilter = result.filter?.toLowerCase();
+        if (suggestedFilter && validFilters.includes(suggestedFilter)) {
+          return suggestedFilter;
+        }
+      }
+    } catch (e) {
+      // Ignore JSON parsing errors and fall back to text search
+    }
+
+    // Fallback for cases where the AI doesn't return perfect JSON
+    const lowerCaseText = text.toLowerCase();
     for (const validFilter of validFilters) {
-        if (text.includes(validFilter)) {
+        if (lowerCaseText.includes(validFilter)) {
             return validFilter;
         }
     }

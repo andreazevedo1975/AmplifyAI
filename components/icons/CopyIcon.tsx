@@ -1,12 +1,15 @@
 
 import React from 'react';
 
-export const CopyIcon: React.FC = () => {
+interface CopyIconProps {
+  className?: string;
+}
+
+export const CopyIcon: React.FC<CopyIconProps> = ({ className = "w-4 h-4" }) => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
+      className={className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

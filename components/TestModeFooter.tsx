@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { WarningIcon } from './icons/WarningIcon';
+import { InfoIcon } from './icons/InfoIcon';
 
 export const TestModeFooter: React.FC = () => {
     const [testUrl, setTestUrl] = useState('');
@@ -58,7 +59,7 @@ export const TestModeFooter: React.FC = () => {
         if (isFullyShareable) {
             return (
                 <div className="flex items-center gap-2" title="Esta URL é pública e pode ser compartilhada com terceiros.">
-                    <CheckCircleIcon />
+                    <CheckCircleIcon className="h-5 w-5 text-green-400 flex-shrink-0" />
                     <a 
                         href={testUrl} 
                         target="_blank" 
@@ -74,9 +75,9 @@ export const TestModeFooter: React.FC = () => {
             return (
                 <div 
                     className="flex items-center gap-2 text-sm text-yellow-400"
-                    title="Esta URL é local. Funciona para testes no seu navegador, mas não pode ser acessada por outras pessoas."
+                    title="Esta é uma URL de desenvolvimento. Funciona apenas no seu computador. Para compartilhar com outras pessoas, você precisa hospedar (fazer deploy) o aplicativo."
                 >
-                    <WarningIcon className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+                    <InfoIcon className="h-5 w-5 text-yellow-400 flex-shrink-0" />
                     <a
                         href={testUrl}
                         target="_blank"
@@ -103,16 +104,20 @@ export const TestModeFooter: React.FC = () => {
         <footer className="fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-lg border-t border-slate-700/50 p-3 z-30">
             <div className="container mx-auto flex flex-col sm:flex-row items-center justify-center text-center gap-2 sm:gap-4">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-cyan-300 flex-shrink-0">URL para Demonstração:</span>
+                    <span className="text-sm font-semibold text-cyan-300 flex-shrink-0">URL de Demonstração:</span>
                     {renderUrlStatus()}
                 </div>
                 <button 
                     onClick={handleCopy}
-                    disabled={(!isFullyShareable && !isLocal) || copied}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!isFullyShareable && !isLocal}
+                    className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        copied 
+                        ? 'bg-green-500/20 text-green-300' 
+                        : 'text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white'
+                    }`}
                 >
-                    <CopyIcon />
-                    {copied ? 'Copiado!' : 'Copiar URL'}
+                    {copied ? <CheckCircleIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
+                    <span className="pr-1">{copied ? 'Copiado!' : 'Copiar URL'}</span>
                 </button>
             </div>
         </footer>

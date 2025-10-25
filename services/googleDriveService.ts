@@ -4,44 +4,51 @@ import type { PostData } from '../types';
 declare const google: any;
 declare const gapi: any;
 
-// Configuração do Google Client ID.
-// Em um ambiente de produção real, este valor NUNCA deve ser exposto diretamente no código.
-// Ele deve ser carregado a partir de variáveis de ambiente seguras.
-// Exemplo: const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_ID = "82041213131-033rkl1lclirgv3j2jn1a49n3tppc32k.apps.googleusercontent.com";
-const API_KEY = process.env.API_KEY!;
+// Add type declarations for the promises we're adding to the window object in index.html
+declare global {
+  interface Window {
+    gapiLoadedPromise: Promise<void>;
+    gisLoadedPromise: Promise<void>;
+    windowGapiLoaded: () => void;
+    windowGisLoaded: () => void;
+  }
+}
+
+// Configuração do Google Client ID e API Key.
+// Em um ambiente de produção real, estes valores NUNCA devem ser expostos diretamente no código.
+// Eles devem ser carregados a partir de variáveis de ambiente seguras.
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const API_KEY = process.env.API_KEY;
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-export const isGoogleDriveConfigured = !!CLIENT_ID;
+// A integração com o Drive só é considerada configurada se AMBAS as chaves estiverem presentes.
+export const isGoogleDriveConfigured = !!CLIENT_ID && !!API_KEY;
 
-let gapiInited = false;
-let gisInited = false;
 let tokenClient: any;
 
-const gapiLoadPromise = new Promise<void>((resolve, reject) => {
-  // @ts-ignore
-  window.gapiLoaded = () => gapi.load('client', () => { gapiInited = true; resolve(); });
-  setTimeout(() => reject(new Error("Timeout: gapi.js não carregou a tempo.")), 10000);
+// Use the promise from index.html, then load the 'client' module.
+const gapiLoadPromise = window.gapiLoadedPromise.then(() => {
+    return new Promise<void>((resolve, reject) => {
+        gapi.load('client', {
+            callback: resolve,
+            onerror: reject,
+            timeout: 5000, // 5 seconds
+            ontimeout: () => reject(new Error("Timeout: O módulo cliente GAPI não carregou a tempo.")),
+        });
+    });
 });
 
-const gisLoadPromise = new Promise<void>((resolve, reject) => {
-  // @ts-ignore
-  window.gisLoaded = () => {
-    if (!isGoogleDriveConfigured) {
-      // If not configured, we can consider it "loaded" for flow control, as no token client is needed.
-      gisInited = true;
-      return resolve();
+// Use the promise from index.html, then initialize the token client.
+const gisLoadPromise = window.gisLoadedPromise.then(() => {
+    if (isGoogleDriveConfigured) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: '', // Handled by promise in requestAccessToken
+        });
     }
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: '', // Callback is handled by the promise
-    });
-    gisInited = true;
-    resolve();
-  };
-  setTimeout(() => reject(new Error("Timeout: GSI client não carregou a tempo.")), 10000);
 });
+
 
 // Singleton promise to manage the GAPI client initialization.
 // This ensures gapi.client.init is called only once and prevents race conditions.
@@ -52,14 +59,20 @@ function initializeGapiClient(): Promise<void> {
         return gapiClientInitPromise;
     }
 
+    // Centraliza a verificação de configuração antes de qualquer chamada de API.
+    // Isso evita erros obscuros da biblioteca do Google se as chaves não estiverem definidas.
+    if (!isGoogleDriveConfigured) {
+        const error = new Error("Google Client ID ou API Key não estão configurados no ambiente. A integração com o Drive está desabilitada.");
+        console.error(error.message);
+        // Retorna uma promise rejeitada para que as chamadas falhem de forma previsível.
+        gapiClientInitPromise = Promise.reject(error);
+        return gapiClientInitPromise;
+    }
+
     gapiClientInitPromise = (async () => {
         try {
-            // Wait for both external scripts to load via their onload callbacks.
+            // Wait for both external scripts to load and their respective clients to initialize.
             await Promise.all([gapiLoadPromise, gisLoadPromise]);
-            
-            if (!gapiInited || !gisInited) {
-                throw new Error("As bibliotecas do Google não foram inicializadas corretamente.");
-            }
             
             // This is the crucial step that makes `gapi.client` available.
             await gapi.client.init({
@@ -114,9 +127,8 @@ let fileIdCache: string | null = null;
 async function findOrCreateHistoryFile(): Promise<string> {
     if (fileIdCache) return fileIdCache;
 
-    if (!CLIENT_ID) throw new Error("Google Client ID não está configurado. A integração com o Drive está desabilitada.");
-    
-    await initializeGapiClient(); // Ensures gapi.client is ready.
+    // A verificação de configuração agora é tratada de forma centralizada em initializeGapiClient.
+    await initializeGapiClient(); // Garante que gapi.client está pronto e a configuração foi verificada.
     
     // @ts-ignore
     const gapiToken = gapi.client.getToken();
@@ -147,7 +159,7 @@ async function findOrCreateHistoryFile(): Promise<string> {
 }
 
 export async function getHistory(): Promise<PostData[]> {
-    await initializeGapiClient(); // Ensures gapi.client is ready.
+    await initializeGapiClient(); // Garante que gapi.client está pronto.
     const fileId = await findOrCreateHistoryFile();
     
     const response = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
@@ -163,7 +175,7 @@ export async function getHistory(): Promise<PostData[]> {
 }
 
 export async function saveHistory(history: PostData[], fileIdOverride?: string): Promise<void> {
-    await initializeGapiClient(); // Ensures gapi.client is ready.
+    await initializeGapiClient(); // Garante que gapi.client está pronto.
     const token = await requestAccessToken();
     const fileId = fileIdOverride ?? await findOrCreateHistoryFile();
     const historyJson = JSON.stringify(history, null, 2);

@@ -10,6 +10,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Create promises that will be resolved by the onload callbacks to avoid race conditions.
+      window.gapiLoadedPromise = new Promise(resolve => { window.gapiLoaded = resolve; });
+      window.gisLoadedPromise = new Promise(resolve => { window.gisLoaded = resolve; });
+    </script>
     <script src="https://apis.google.com/js/api.js?onload=gapiLoaded" async defer></script>
     <script src="https://accounts.google.com/gsi/client?onload=gisLoaded" async defer></script>
     <script type="importmap">

@@ -1,9 +1,13 @@
 import React from 'react';
 
-export const CheckCircleIcon: React.FC = () => (
+interface CheckCircleIconProps {
+  className?: string;
+}
+
+export const CheckCircleIcon: React.FC<CheckCircleIconProps> = ({ className = "h-5 w-5 text-green-400 flex-shrink-0" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className="h-5 w-5 text-green-400 flex-shrink-0"
+    className={className}
     viewBox="0 0 20 20"
     fill="currentColor"
     aria-hidden="true"

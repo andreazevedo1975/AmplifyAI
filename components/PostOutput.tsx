@@ -287,8 +287,8 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
 
   return (
     <div className="bg-slate-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-black/20 border border-slate-100/10 animate-fade-in">
-        <h2 className="text-2xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">Post Gerado para {data.platform}</h2>
-        <p className="text-center text-slate-400 mb-6 text-sm">Tema: {data.theme}</p>
+        <h2 className="text-2xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">Post Gerado para {currentPost.platform}</h2>
+        <p className="text-center text-slate-400 mb-6 text-sm">Tema: {currentPost.theme}</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div id="post-visual" className="aspect-square bg-slate-900 rounded-xl overflow-hidden shadow-lg">

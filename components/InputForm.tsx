@@ -605,7 +605,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                       </div>
                       <div className="ml-3 text-sm">
                           <label htmlFor="thinkingMode" className="font-medium text-slate-200">Análise Profunda</label>
-                          <p className="text-slate-400 text-xs">Usa um modelo mais potente para raciocínio complexo. A geração pode ser mais lenta.</p>
+                          <p className="text-slate-400 text-xs">Ativa um modelo de IA avançado para análises profundas e complexas. A geração pode levar mais tempo.</p>
                       </div>
                     </div>
                      <div className="relative flex items-start">

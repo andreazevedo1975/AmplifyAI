@@ -9,10 +9,11 @@ import { History } from './components/History';
 import { WarningIcon } from './components/icons/WarningIcon';
 import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt, generateAudioFromText } from './services/geminiService';
 import { decodeAndCreateWavBlob } from './services/audioService';
-import { addPost, getAllPosts, deletePost, clearPosts, replaceAllPosts } from './services/dbService';
-import { saveHistoryToDrive, loadHistoryFromDrive } from './services/googleDriveService';
-import type { PostData, AppError, VideoOutputData, AudioOutputData, DriveStatus, GenerateOptions } from './types';
+import { getHistory, saveHistory, isGoogleDriveConfigured } from './services/googleDriveService';
+import type { PostData, AppError, VideoOutputData, AudioOutputData, GenerateOptions } from './types';
 import { TestModeFooter } from './components/TestModeFooter';
+
+export type SyncStatus = 'unauthenticated' | 'loading' | 'syncing' | 'idle' | 'error' | 'unconfigured';
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -22,36 +23,80 @@ const App: React.FC = () => {
     const [generatedScript, setGeneratedScript] = useState<{ title: string, script: string } | null>(null);
     const [generatedAudio, setGeneratedAudio] = useState<AudioOutputData | null>(null);
     const [history, setHistory] = useState<PostData[]>([]);
-    const [driveStatus, setDriveStatus] = useState<DriveStatus | null>(null);
+    const [syncStatus, setSyncStatus] = useState<SyncStatus>('loading');
+    const [syncError, setSyncError] = useState<string | null>(null);
     
     const outputRef = useRef<HTMLDivElement>(null);
-    const driveStatusTimeoutRef = useRef<number | null>(null);
+    const isInitialLoad = useRef(true);
 
+    // Initial history load from Google Drive
     useEffect(() => {
-        const loadHistory = async () => {
-            const items = await getAllPosts();
-            setHistory(items.sort((a, b) => parseInt(b.id) - parseInt(a.id)));
-        };
-        loadHistory();
-    }, []);
-
-    useEffect(() => {
-        if (driveStatus) {
-            if (driveStatusTimeoutRef.current) {
-                clearTimeout(driveStatusTimeoutRef.current);
-            }
-            if (driveStatus.type !== 'info') {
-                 driveStatusTimeoutRef.current = window.setTimeout(() => {
-                    setDriveStatus(null);
-                }, 5000);
-            }
+        if (isGoogleDriveConfigured) {
+            handleConnectAndLoad();
+        } else {
+            setSyncStatus('unconfigured');
+            setSyncError("A integração com o Google Drive não está configurada no ambiente. O histórico não será salvo.");
+            isInitialLoad.current = false;
         }
-        return () => {
-            if (driveStatusTimeoutRef.current) {
-                clearTimeout(driveStatusTimeoutRef.current);
+    }, []);
+    
+    // Auto-save history to Google Drive on changes
+    useEffect(() => {
+        if (isInitialLoad.current || syncStatus === 'unauthenticated' || syncStatus === 'loading' || syncStatus === 'syncing' || syncStatus === 'error' || syncStatus === 'unconfigured') {
+            return;
+        }
+
+        const debounceSave = setTimeout(async () => {
+            setSyncStatus('syncing');
+            try {
+                await saveHistory(history);
+                setSyncStatus('idle');
+                setSyncError(null);
+            } catch (e) {
+                console.error("Auto-save failed:", e);
+                setSyncStatus('error');
+                setSyncError(e instanceof Error ? e.message : "Erro desconhecido ao salvar.");
             }
-        };
-    }, [driveStatus]);
+        }, 1500); // Debounce to avoid too many writes
+
+        return () => clearTimeout(debounceSave);
+    }, [history]);
+
+
+    const handleConnectAndLoad = async () => {
+        setSyncStatus('loading');
+        setSyncError(null);
+        try {
+            const driveHistory = await getHistory();
+            setHistory(driveHistory.sort((a, b) => parseInt(b.id) - parseInt(a.id)));
+            setSyncStatus('idle');
+        } catch (e) {
+            console.error("Failed to load history from Drive:", e);
+            setSyncStatus('unauthenticated'); // Fallback to unauthenticated on auth errors
+            setSyncError(e instanceof Error ? e.message : "Falha ao carregar histórico.");
+        } finally {
+            isInitialLoad.current = false;
+        }
+    };
+
+    const handleManualSave = async () => {
+        setSyncStatus('syncing');
+        setSyncError(null);
+        try {
+            await saveHistory(history);
+            setSyncStatus('idle');
+        } catch (e) {
+            console.error("Manual save failed:", e);
+            setSyncStatus('error');
+            setSyncError(e instanceof Error ? e.message : "Erro desconhecido ao salvar manualmente.");
+        }
+    };
+
+    const handleManualLoad = () => {
+        if (window.confirm('Tem certeza que deseja carregar do Google Drive? As alterações não salvas nesta sessão serão perdidas.')) {
+            handleConnectAndLoad();
+        }
+    };
 
 
     const scrollToOutput = () => {
@@ -90,7 +135,7 @@ const App: React.FC = () => {
             }
         } catch (err) {
             console.error("Generation failed:", err);
-            const friendlyError = parseError(err as Error);
+            const friendlyError = parseError(err);
             setError(friendlyError);
         } finally {
             setIsLoading(false);
@@ -136,7 +181,6 @@ const App: React.FC = () => {
         };
 
         setGeneratedPost(newPost);
-        await addPost(newPost);
         setHistory(prev => [newPost, ...prev]);
     };
     
@@ -225,8 +269,8 @@ const App: React.FC = () => {
         });
     };
     
-    const parseError = (err: Error): AppError => {
-        const message = err.message || "Ocorreu um erro desconhecido.";
+    const parseError = (err: unknown): AppError => {
+        const message = err instanceof Error ? err.message : "Ocorreu um erro desconhecido.";
         
         if (message.startsWith('[') && message.includes(']')) {
             const tag = message.substring(1, message.indexOf(']'));
@@ -290,7 +334,6 @@ const App: React.FC = () => {
     };
 
     const handleDeleteHistory = async (id: string) => {
-        await deletePost(id);
         setHistory(prev => prev.filter(item => item.id !== id));
         if (generatedPost?.id === id) {
             setGeneratedPost(null);
@@ -298,8 +341,7 @@ const App: React.FC = () => {
     };
 
     const handleClearHistory = async () => {
-        if (window.confirm('Tem certeza que deseja apagar todo o histórico? Esta ação não pode ser desfeita.')) {
-            await clearPosts();
+        if (window.confirm('Tem certeza que deseja apagar todo o histórico? Esta ação irá limpar o arquivo no seu Google Drive e não pode ser desfeita.')) {
             setHistory([]);
             setGeneratedPost(null);
         }
@@ -318,46 +360,6 @@ const App: React.FC = () => {
             tone: post.tone || 'Envolvente',
         };
         handleGenerate(options);
-    };
-
-    const handleSaveHistoryToDrive = async () => {
-        if (history.length === 0) {
-            setDriveStatus({ type: 'info', message: 'Seu histórico está vazio. Nada para salvar.' });
-            return;
-        }
-        setDriveStatus({ type: 'info', message: 'Iniciando o salvamento no Google Drive...' });
-        try {
-            const fileName = await saveHistoryToDrive(history);
-            setDriveStatus({ type: 'success', message: `Histórico salvo como "${fileName}" no seu Google Drive!` });
-        } catch (error) {
-            console.error("Drive save error:", error);
-            const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
-            setDriveStatus({ type: 'error', message: `Falha ao salvar: ${errorMessage}` });
-        }
-    };
-
-    const handleLoadHistoryFromDrive = async () => {
-        setDriveStatus({ type: 'info', message: 'Aguardando seleção de arquivo no Google Drive...' });
-        try {
-            const loadedHistory = await loadHistoryFromDrive();
-            if (loadedHistory && loadedHistory.length > 0) {
-                 if (window.confirm(`Arquivo encontrado com ${loadedHistory.length} posts. Deseja substituir seu histórico local com este conteúdo? Esta ação não pode ser desfeita.`)) {
-                    await replaceAllPosts(loadedHistory);
-                    const sortedHistory = loadedHistory.sort((a, b) => parseInt(b.id) - parseInt(a.id));
-                    setHistory(sortedHistory);
-                    setGeneratedPost(null);
-                    setDriveStatus({ type: 'success', message: 'Histórico carregado e substituído com sucesso!' });
-                } else {
-                    setDriveStatus({ type: 'info', message: 'Operação de carregamento cancelada pelo usuário.' });
-                }
-            } else {
-                setDriveStatus({ type: 'info', message: 'Nenhum histórico foi carregado.' });
-            }
-        } catch (error) {
-            console.error("Drive load error:", error);
-            const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
-            setDriveStatus({ type: 'error', message: `Falha ao carregar: ${errorMessage}` });
-        }
     };
 
     return (
@@ -396,9 +398,11 @@ const App: React.FC = () => {
                         onDelete={handleDeleteHistory} 
                         onRegenerate={handleRegenerate}
                         onClear={handleClearHistory}
-                        onSaveToDrive={handleSaveHistoryToDrive}
-                        onLoadFromDrive={handleLoadHistoryFromDrive}
-                        driveStatus={driveStatus}
+                        syncStatus={syncStatus}
+                        syncError={syncError}
+                        onConnect={handleConnectAndLoad}
+                        onManualSave={handleManualSave}
+                        onManualLoad={handleManualLoad}
                     />
                 </div>
             </main>

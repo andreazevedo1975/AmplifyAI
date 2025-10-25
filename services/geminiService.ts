@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { GeneratedContent } from '../types';
 
@@ -706,39 +705,36 @@ export const suggestImageOptimization = async (theme: string): Promise<string> =
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            filter: {
+              type: Type.STRING,
+              description: "O nome do filtro de imagem sugerido."
+            }
+          },
+          required: ["filter"]
+        }
+      }
     });
     
     if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
         throw new Error("[SAFETY_BLOCK] A sugestão de filtro foi bloqueada por motivos de segurança.");
     }
     
-    // Prioritize parsing the response as JSON if possible
-    const text = response.text.trim();
-    try {
-      const startIndex = text.indexOf('{');
-      const endIndex = text.lastIndexOf('}');
-      if (startIndex !== -1 && endIndex !== -1) {
-        const jsonString = text.substring(startIndex, endIndex + 1);
-        const result = JSON.parse(jsonString);
-        const suggestedFilter = result.filter?.toLowerCase();
-        if (suggestedFilter && validFilters.includes(suggestedFilter)) {
-          return suggestedFilter;
-        }
-      }
-    } catch (e) {
-      // Ignore JSON parsing errors and fall back to text search
-    }
-
-    // Fallback for cases where the AI doesn't return perfect JSON
-    const lowerCaseText = text.toLowerCase();
-    for (const validFilter of validFilters) {
-        if (lowerCaseText.includes(validFilter)) {
-            return validFilter;
-        }
+    const jsonString = response.text.trim();
+    const result = JSON.parse(jsonString);
+    const suggestedFilter = result.filter?.toLowerCase();
+    
+    if (suggestedFilter && validFilters.includes(suggestedFilter)) {
+      return suggestedFilter;
     }
     
-    console.warn(`AI returned an invalid filter name: '${text}'. Defaulting to 'none'.`);
-    return 'none'; // Default fallback
+    console.warn(`AI returned an invalid filter name: '${suggestedFilter}'. Defaulting to 'none'.`);
+    return 'none';
+    
   } catch (error) {
     console.error("Erro ao sugerir otimização de imagem:", error);
     const commonError = handleCommonErrors(error);

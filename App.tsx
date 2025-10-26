@@ -9,7 +9,8 @@ import { History } from './components/History';
 import { WarningIcon } from './components/icons/WarningIcon';
 import { generateImage, generateContentWithSearch, generateVideoScript, generateVideoFromPrompt, generateAudioFromText } from './services/geminiService';
 import { decodeAndCreateWavBlob } from './services/audioService';
-import { getHistory, saveHistory, isGoogleDriveConfigured } from './services/googleDriveService';
+import { getHistory as getDriveHistory, saveHistory as saveDriveHistory, isGoogleDriveConfigured } from './services/googleDriveService';
+import { getAllPosts as getLocalHistory, replaceAllPosts as saveLocalHistory } from './services/dbService';
 import type { PostData, AppError, VideoOutputData, AudioOutputData, GenerateOptions } from './types';
 import { TestModeFooter } from './components/TestModeFooter';
 
@@ -29,27 +30,56 @@ const App: React.FC = () => {
     const outputRef = useRef<HTMLDivElement>(null);
     const isInitialLoad = useRef(true);
 
-    // Initial history load from Google Drive
+    // Initial history load from Google Drive or Local DB
     useEffect(() => {
-        if (isGoogleDriveConfigured) {
-            handleConnectAndLoad();
-        } else {
-            setSyncStatus('unconfigured');
-            setSyncError("A integração com o Google Drive não está configurada no ambiente. O histórico não será salvo.");
-            isInitialLoad.current = false;
-        }
+        const loadHistory = async () => {
+            if (isGoogleDriveConfigured) {
+                await handleConnectAndLoad();
+            } else {
+                setSyncStatus('unconfigured');
+                setSyncError("Google Drive não configurado. O histórico está sendo salvo localmente.");
+                try {
+                    const localHistory = await getLocalHistory();
+                    setHistory(localHistory.sort((a, b) => parseInt(b.id) - parseInt(a.id)));
+                } catch (e) {
+                    console.error("Failed to load local history:", e);
+                    setError({
+                        title: 'Erro no Histórico Local',
+                        message: 'Não foi possível carregar seu histórico do navegador.',
+                        suggestion: 'Verifique as permissões de armazenamento do seu navegador e tente recarregar a página.'
+                    });
+                } finally {
+                    isInitialLoad.current = false;
+                }
+            }
+        };
+        loadHistory();
     }, []);
     
-    // Auto-save history to Google Drive on changes
+    // Auto-save history on changes
     useEffect(() => {
-        if (isInitialLoad.current || syncStatus === 'unauthenticated' || syncStatus === 'loading' || syncStatus === 'syncing' || syncStatus === 'error' || syncStatus === 'unconfigured') {
+        if (isInitialLoad.current) {
             return;
         }
 
         const debounceSave = setTimeout(async () => {
+            if (!isGoogleDriveConfigured) {
+                try {
+                    await saveLocalHistory(history);
+                } catch (e) {
+                    console.error("Local save failed:", e);
+                    setSyncError("Falha ao salvar o histórico localmente.");
+                }
+                return;
+            }
+            
+            if (syncStatus === 'unauthenticated' || syncStatus === 'loading' || syncStatus === 'syncing' || syncStatus === 'error') {
+                return;
+            }
+
             setSyncStatus('syncing');
             try {
-                await saveHistory(history);
+                await saveDriveHistory(history);
                 setSyncStatus('idle');
                 setSyncError(null);
             } catch (e) {
@@ -57,17 +87,17 @@ const App: React.FC = () => {
                 setSyncStatus('error');
                 setSyncError(e instanceof Error ? e.message : "Erro desconhecido ao salvar.");
             }
-        }, 1500); // Debounce to avoid too many writes
+        }, 1500);
 
         return () => clearTimeout(debounceSave);
-    }, [history]);
+    }, [history, syncStatus]);
 
 
     const handleConnectAndLoad = async () => {
         setSyncStatus('loading');
         setSyncError(null);
         try {
-            const driveHistory = await getHistory();
+            const driveHistory = await getDriveHistory();
             setHistory(driveHistory.sort((a, b) => parseInt(b.id) - parseInt(a.id)));
             setSyncStatus('idle');
         } catch (e) {
@@ -83,7 +113,7 @@ const App: React.FC = () => {
         setSyncStatus('syncing');
         setSyncError(null);
         try {
-            await saveHistory(history);
+            await saveDriveHistory(history);
             setSyncStatus('idle');
         } catch (e) {
             console.error("Manual save failed:", e);
@@ -341,7 +371,11 @@ const App: React.FC = () => {
     };
 
     const handleClearHistory = async () => {
-        if (window.confirm('Tem certeza que deseja apagar todo o histórico? Esta ação irá limpar o arquivo no seu Google Drive e não pode ser desfeita.')) {
+        const message = isGoogleDriveConfigured
+            ? 'Tem certeza que deseja apagar todo o histórico? Esta ação irá limpar o arquivo no seu Google Drive e não pode ser desfeita.'
+            : 'Tem certeza que deseja apagar todo o histórico local? Esta ação não pode ser desfeita.';
+
+        if (window.confirm(message)) {
             setHistory([]);
             setGeneratedPost(null);
         }

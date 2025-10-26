@@ -10,7 +10,7 @@ import { Spinner } from './Spinner';
 import { CloudIcon } from './icons/CloudIcon';
 import { SaveIcon } from './icons/SaveIcon';
 import { CloudDownloadIcon } from './icons/CloudDownloadIcon';
-import { WarningIcon } from './icons/WarningIcon';
+import { InfoIcon } from './icons/InfoIcon';
 
 
 interface HistoryProps {
@@ -33,7 +33,7 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
       case 'unauthenticated':
         return <span className="text-yellow-400">Requer autenticação</span>;
       case 'unconfigured':
-         return <span className="text-yellow-400">Não configurado</span>;
+         return <span className="text-yellow-400">Salvo Localmente</span>;
       case 'loading':
         return <span className="text-blue-400 flex items-center gap-2"><Spinner /> Carregando...</span>;
       case 'syncing':
@@ -47,26 +47,13 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
     }
   };
 
-  if (syncStatus === 'unconfigured') {
-    return (
-        <div className="text-center py-16 border-t border-slate-700/50 mt-12 flex flex-col items-center">
-            <WarningIcon className="h-16 w-16 text-yellow-400 mb-4" />
-            <h2 className="text-2xl font-bold text-slate-300 mt-6 mb-2">Google Drive Não Configurado</h2>
-            <p className="text-slate-400 max-w-md mb-6">
-                A funcionalidade de histórico na nuvem está desabilitada porque a aplicação não foi configurada com as credenciais necessárias (Google Client ID).
-            </p>
-            {syncError && <p className="text-yellow-500 text-sm mt-2 bg-yellow-900/20 p-3 rounded-md max-w-md">{syncError}</p>}
-        </div>
-    );
-  }
-
   if (items.length === 0 && syncStatus !== 'loading' && syncStatus !== 'unauthenticated') {
     return (
       <div className="text-center py-16 border-t border-slate-700/50 mt-12 flex flex-col items-center">
         <EmptyHistoryIllustration />
         <h2 className="text-2xl font-bold text-slate-300 mt-6 mb-2">Seu histórico está vazio</h2>
         <p className="text-slate-400 max-w-sm">
-          Quando você gerar seu primeiro post, ele aparecerá aqui, salvo e sincronizado com o Google Drive.
+          Quando você gerar seu primeiro post, ele aparecerá aqui.
         </p>
       </div>
     );
@@ -99,26 +86,32 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h2 className="text-3xl font-bold text-slate-200">Histórico de Posts</h2>
         <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-xs font-medium flex items-center gap-2 p-2 bg-slate-800/50 rounded-full ring-1 ring-slate-700" title="Status de sincronização com o Google Drive">
+            <div className="text-xs font-medium flex items-center gap-2 p-2 bg-slate-800/50 rounded-full ring-1 ring-slate-700" title="Status de sincronização">
                 <CloudIcon status={syncStatus} />
                 {renderSyncStatus()}
             </div>
-             <button
-              onClick={onManualLoad}
-              disabled={syncStatus === 'syncing' || syncStatus === 'loading'}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 transition-all duration-200 disabled:opacity-50"
-              aria-label="Carregar do Google Drive"
-            >
-              <CloudDownloadIcon />
-            </button>
-             <button
-              onClick={onManualSave}
-              disabled={syncStatus === 'syncing' || syncStatus === 'loading'}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 transition-all duration-200 disabled:opacity-50"
-              aria-label="Salvar no Google Drive"
-            >
-              <SaveIcon />
-            </button>
+            {syncStatus !== 'unconfigured' && (
+              <>
+                <button
+                onClick={onManualLoad}
+                disabled={syncStatus === 'syncing' || syncStatus === 'loading'}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 transition-all duration-200 disabled:opacity-50"
+                aria-label="Carregar do Google Drive"
+                title="Carregar do Google Drive"
+              >
+                <CloudDownloadIcon />
+              </button>
+               <button
+                onClick={onManualSave}
+                disabled={syncStatus === 'syncing' || syncStatus === 'loading'}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 transition-all duration-200 disabled:opacity-50"
+                aria-label="Salvar no Google Drive"
+                title="Salvar no Google Drive"
+              >
+                <SaveIcon />
+              </button>
+            </>
+            )}
             <button
               onClick={onClear}
               disabled={items.length === 0}
@@ -130,16 +123,23 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
         </div>
       </div>
       
-      {syncStatus === 'error' && (
+      {syncStatus === 'error' && syncError && (
         <div className="p-3 mb-6 rounded-lg border text-sm flex items-center gap-2 bg-red-500/10 text-red-300 border-red-500/30">
-            <span><strong>Atenção:</strong> {syncError || "Não foi possível sincronizar as últimas alterações. Verifique sua conexão ou permissões."}</span>
+            <span><strong>Atenção:</strong> {syncError}</span>
+        </div>
+      )}
+      
+      {syncStatus === 'unconfigured' && syncError && (
+        <div className="p-3 mb-6 rounded-lg border text-sm flex items-center gap-2 bg-blue-900/30 text-blue-300 border-blue-500/50">
+            <InfoIcon className="h-5 w-5 flex-shrink-0" />
+            <span>{syncError}</span>
         </div>
       )}
 
       {syncStatus === 'loading' && (
         <div className="text-center py-20">
           <Spinner />
-          <p className="mt-4 text-slate-400">Carregando seu histórico do Google Drive...</p>
+          <p className="mt-4 text-slate-400">Carregando seu histórico...</p>
         </div>
       )}
 

@@ -71,7 +71,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [selectedTone, setSelectedTone] = useState('Envolvente');
+  const [selectedTone, setSelectedTone] = useState('Casual');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const [scriptTitle, setScriptTitle] = useState('');

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import type { PostData } from '../types';
 import type { SyncStatus } from '../App';
 import { TrashIcon } from './icons/TrashIcon';
@@ -27,7 +27,21 @@ interface HistoryProps {
 }
 
 export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onRegenerate, onClear, syncStatus, syncError, onConnect, onManualSave, onManualLoad }) => {
-  
+  const [platformFilter, setPlatformFilter] = useState('Todas');
+
+  const platforms = useMemo(() => {
+    const platformSet = new Set(items.map(item => item.platform));
+    return ['Todas', ...Array.from(platformSet).sort()];
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (platformFilter === 'Todas') {
+      return items;
+    }
+    return items.filter(item => item.platform === platformFilter);
+  }, [items, platformFilter]);
+
+
   const renderSyncStatus = () => {
     switch (syncStatus) {
       case 'unauthenticated':
@@ -84,7 +98,24 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
   return (
     <div className="border-t border-slate-700/50 pt-12">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-3xl font-bold text-slate-200">Histórico de Posts</h2>
+        <div className="flex items-center gap-4 flex-wrap">
+            <h2 className="text-3xl font-bold text-slate-200">Histórico de Posts</h2>
+            {items.length > 0 && (
+                <div className="relative">
+                    <select
+                        value={platformFilter}
+                        onChange={(e) => setPlatformFilter(e.target.value)}
+                        className="bg-slate-800/50 border-2 border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-sm text-slate-300 focus:ring-fuchsia-500 focus:border-fuchsia-500 appearance-none transition-colors"
+                        aria-label="Filtrar por plataforma"
+                    >
+                        {platforms.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                </div>
+            )}
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs font-medium flex items-center gap-2 p-2 bg-slate-800/50 rounded-full ring-1 ring-slate-700" title="Status de sincronização">
                 <CloudIcon status={syncStatus} />
@@ -144,30 +175,37 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
       )}
 
       {syncStatus !== 'loading' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((post) => (
-            <div key={post.id} className="bg-slate-900/50 rounded-2xl shadow-lg border border-slate-100/10 overflow-hidden flex flex-col group animate-fade-in transition-all duration-300 hover:shadow-2xl hover:shadow-fuchsia-500/10 hover:border-slate-100/20 transform hover:-translate-y-1">
-              <div className="aspect-video bg-slate-900 overflow-hidden relative">
-                  <img src={post.imageUrl} alt={`Imagem para ${post.theme}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                  <div className="absolute bottom-0 left-0 p-4">
-                      <p className="text-xs text-fuchsia-400 mb-1 font-bold uppercase tracking-wider">{post.platform}</p>
-                      <p className="font-semibold text-slate-100 line-clamp-2 leading-tight">{post.theme}</p>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map((post) => (
+              <div key={post.id} className="bg-slate-900/50 rounded-2xl shadow-lg border border-slate-100/10 overflow-hidden flex flex-col group animate-fade-in transition-all duration-300 hover:shadow-2xl hover:shadow-fuchsia-500/10 hover:border-slate-100/20 transform hover:-translate-y-1">
+                <div className="aspect-video bg-slate-900 overflow-hidden relative">
+                    <img src={post.imageUrl} alt={`Imagem para ${post.theme}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    <div className="absolute bottom-0 left-0 p-4">
+                        <p className="text-xs text-fuchsia-400 mb-1 font-bold uppercase tracking-wider">{post.platform}</p>
+                        <p className="font-semibold text-slate-100 line-clamp-2 leading-tight">{post.theme}</p>
+                    </div>
+                </div>
+                <div className="p-4 bg-slate-800/50 flex-grow flex flex-col justify-between">
+                  <p className="text-sm text-slate-300 line-clamp-3 mb-3">
+                    {post.caption}
+                  </p>
+                  <div className="flex justify-end items-center gap-2">
+                    <button onClick={() => onSelect(post)} title="Visualizar" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><EyeIcon /></button>
+                    <button onClick={() => onRegenerate(post)} title="Gerar Novo" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><RegenerateIcon /></button>
+                    <button onClick={() => onDelete(post.id)} title="Excluir" className="p-2 rounded-full text-red-400 bg-red-900/30 hover:bg-red-900/60 hover:text-red-300 transition-all"><TrashIcon /></button>
                   </div>
-              </div>
-              <div className="p-4 bg-slate-800/50 flex-grow flex flex-col justify-between">
-                <p className="text-sm text-slate-300 line-clamp-3 mb-3">
-                  {post.caption}
-                </p>
-                <div className="flex justify-end items-center gap-2">
-                  <button onClick={() => onSelect(post)} title="Visualizar" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><EyeIcon /></button>
-                  <button onClick={() => onRegenerate(post)} title="Gerar Novo" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><RegenerateIcon /></button>
-                  <button onClick={() => onDelete(post.id)} title="Excluir" className="p-2 rounded-full text-red-400 bg-red-900/30 hover:bg-red-900/60 hover:text-red-300 transition-all"><TrashIcon /></button>
                 </div>
               </div>
+            ))}
+          </div>
+          {filteredItems.length === 0 && items.length > 0 && (
+            <div className="text-center py-16">
+              <p className="text-slate-400">Nenhum post encontrado para a plataforma "{platformFilter}".</p>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

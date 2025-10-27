@@ -37,8 +37,8 @@ const platformDetails = [
 ];
 
 const toneOptions = [
-  'Envolvente', 'Profissional', 'Inspirador', 'Divertido', 'Informativo', 
-  'Casual', 'Formal', 'Urgente', 'Empático', 'Ousado', 'Minimalista'
+  'Casual', 'Divertido', 'Empático', 'Envolvente', 'Formal', 'Informativo', 
+  'Inspirador', 'Minimalista', 'Ousado', 'Profissional', 'Urgente'
 ];
 
 const voiceOptions = [

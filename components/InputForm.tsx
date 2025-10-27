@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
-import { generateInspirationalIdea } from '../services/geminiService';
+import { generateInspirationalIdea, generateTrendingTopics } from '../services/geminiService';
 import { Spinner } from './Spinner';
 import { CloseIcon } from './icons/CloseIcon';
 import { Modal } from './Modal';
@@ -9,6 +9,7 @@ import { SparklesIcon } from './icons/SparklesIcon';
 import { ManageAccountsIcon } from './icons/ManageAccountsIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import type { ToneProfile, GenerateOptions } from '../types';
+import { TrendingUpIcon } from './icons/TrendingUpIcon';
 
 
 interface InputFormProps {
@@ -66,7 +67,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageOption, setImageOption] = useState<'prompt' | 'url' | 'none'>('prompt');
   const [imageUrl, setImageUrl] = useState('');
-  const [platform, setPlatform] = useState('Facebook');
+  const [platform, setPlatform] = useState(platformDetails[0].name);
   const [selectedProfileUrl, setSelectedProfileUrl] = useState('');
   const [thinkingMode, setThinkingMode] = useState(false);
   const [creativityMode, setCreativityMode] = useState(false);
@@ -99,6 +100,20 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [toneFormDescription, setToneFormDescription] = useState('');
   const [toneFormExamples, setToneFormExamples] = useState('');
   const [toneFormError, setToneFormError] = useState<string | null>(null);
+
+  // State for Trend Hunter
+  const [isTrendModalOpen, setIsTrendModalOpen] = useState(false);
+  const [trendKeyword, setTrendKeyword] = useState('');
+  const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
+  const [isSearchingTrends, setIsSearchingTrends] = useState(false);
+  const [trendSearchError, setTrendSearchError] = useState<string | null>(null);
+
+  const exampleProfiles = [
+    { name: 'NASA (Educacional)', url: 'https://www.instagram.com/nasa/' },
+    { name: 'Nike (Motivacional)', url: 'https://www.instagram.com/nike/' },
+    { name: 'The Verge (Tecnológico)', url: 'https://www.theverge.com/' },
+    { name: "Wendy's (Humor Ousado)", url: 'https://twitter.com/wendys' },
+  ];
   
   // Load profiles from localStorage on mount
   useEffect(() => {
@@ -228,6 +243,33 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     } finally {
       setIsGeneratingIdea(false);
     }
+  };
+
+  const handleSearchTrends = async () => {
+      if (!trendKeyword.trim()) {
+          setTrendSearchError("Por favor, insira uma palavra-chave para buscar.");
+          return;
+      }
+      setIsSearchingTrends(true);
+      setTrendSearchError(null);
+      setTrendingTopics([]);
+      try {
+          const topics = await generateTrendingTopics(trendKeyword);
+          setTrendingTopics(topics);
+      } catch (error) {
+          setTrendSearchError((error as Error).message || "Ocorreu um erro ao buscar as tendências.");
+      } finally {
+          setIsSearchingTrends(false);
+      }
+  };
+
+  const handleSelectTrend = (topic: string) => {
+      setTheme(topic);
+      setIsTrendModalOpen(false);
+      // Reset modal state
+      setTrendKeyword('');
+      setTrendingTopics([]);
+      setTrendSearchError(null);
   };
 
 
@@ -468,6 +510,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                         <button type="button" onClick={() => handleGenerateIdea('quote')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Citação</button>
                         <button type="button" onClick={() => handleGenerateIdea('story')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Ideia</button>
                         <button type="button" onClick={() => handleGenerateIdea('reflection')} className="text-xs font-semibold px-4 py-2 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-transform hover:scale-105">Gerar Reflexão</button>
+                        <button type="button" onClick={() => { setIsTrendModalOpen(true); setTrendSearchError(null); setTrendingTopics([]); setTrendKeyword(''); }} className="text-xs font-semibold px-4 py-2 rounded-full bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 hover:text-white transition-all hover:scale-105 flex items-center gap-1.5">
+                            <TrendingUpIcon /> Buscar Tendências
+                        </button>
                       </>
                     )}
                  </div>
@@ -560,9 +605,18 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                         className="flex-grow w-full bg-slate-800 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
                     >
                         <option value="">Nenhum perfil selecionado</option>
-                        {savedProfiles.map(profile => (
-                            <option key={profile.url} value={profile.url}>{profile.name}</option>
-                        ))}
+                        {savedProfiles.length > 0 && (
+                            <optgroup label="Seus Perfis Salvos">
+                                {savedProfiles.map(profile => (
+                                    <option key={profile.url} value={profile.url}>{profile.name}</option>
+                                ))}
+                            </optgroup>
+                        )}
+                         <optgroup label="Exemplos Prontos">
+                            {exampleProfiles.map(profile => (
+                                <option key={profile.url} value={profile.url}>{profile.name}</option>
+                            ))}
+                        </optgroup>
                     </select>
                     <button type="button" onClick={() => setIsProfileModalOpen(true)} className="p-3 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors" aria-label="Gerenciar Perfis Salvos" title="Gerenciar Perfis Salvos">
                         <ManageAccountsIcon />
@@ -796,6 +850,60 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                     </div>
                 </div>
             </div>
+        </div>
+    </Modal>
+    <Modal isOpen={isTrendModalOpen} onClose={() => setIsTrendModalOpen(false)} title="Caçador de Tendências">
+        <div className="space-y-6">
+            <div>
+                <label htmlFor="trend-keyword" className="block text-sm font-medium text-slate-300 mb-2">
+                    Palavra-chave ou Tópico de Interesse
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        id="trend-keyword"
+                        type="text"
+                        value={trendKeyword}
+                        onChange={(e) => setTrendKeyword(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSearchTrends(); }}
+                        placeholder="Ex: Marketing Digital, IA, Receitas"
+                        className="w-full bg-slate-900 border-2 border-slate-600 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 transition"
+                    />
+                    <button
+                        onClick={handleSearchTrends}
+                        disabled={isSearchingTrends}
+                        className="flex-shrink-0 flex justify-center items-center py-3 px-5 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-fuchsia-600 hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-fuchsia-500 disabled:opacity-50"
+                    >
+                        {isSearchingTrends ? <Spinner /> : 'Buscar'}
+                    </button>
+                </div>
+            </div>
+
+            {isSearchingTrends && (
+                <div className="text-center py-8">
+                    <Spinner />
+                    <p className="mt-2 text-slate-400">Analisando tendências atuais...</p>
+                </div>
+            )}
+            
+            {trendSearchError && <p className="text-sm text-red-400">{trendSearchError}</p>}
+
+            {trendingTopics.length > 0 && (
+                <div>
+                    <h3 className="text-md font-semibold text-slate-300 mb-3">Tópicos em Alta Sugeridos</h3>
+                    <ul className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                        {trendingTopics.map((topic, index) => (
+                            <li key={index}>
+                                <button
+                                    onClick={() => handleSelectTrend(topic)}
+                                    className="w-full text-left bg-slate-700/50 p-3 rounded-md hover:bg-slate-700 transition-colors text-slate-200"
+                                >
+                                    {topic}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     </Modal>
     </form>

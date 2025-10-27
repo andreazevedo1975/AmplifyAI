@@ -378,6 +378,59 @@ export const generateInspirationalIdea = async (category: 'quote' | 'story' | 'r
   }
 };
 
+export const generateTrendingTopics = async (keyword: string): Promise<string[]> => {
+  const prompt = `
+    Você é um especialista em tendências de mídia social. Sua tarefa é encontrar os tópicos mais quentes e discussões atuais relacionados à palavra-chave fornecida.
+
+    **Palavra-chave:** "${keyword}"
+
+    **Instruções:**
+    1.  Use a busca para pesquisar notícias recentes, artigos populares, discussões em fóruns e tendências de redes sociais sobre a palavra-chave.
+    2.  Com base na sua pesquisa, gere uma lista de 5 a 7 ideias de temas para posts que tenham alto potencial de engajamento no momento.
+    3.  As ideias devem ser concisas, cativantes e prontas para serem usadas como tema central de um post.
+
+    Retorne sua resposta como um array JSON de strings, onde cada string é uma ideia de tema.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          description: "Uma lista de 5 a 7 ideias de temas para posts em alta.",
+          items: {
+            type: Type.STRING,
+            description: "Uma ideia de tema concisa e cativante."
+          }
+        }
+      }
+    });
+    
+    if (response.candidates?.length === 0 || response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error("[SAFETY_BLOCK] A busca por tendências foi bloqueada por motivos de segurança.");
+    }
+    
+    const jsonString = response.text.trim();
+    const suggestions: string[] = JSON.parse(jsonString);
+    if (Array.isArray(suggestions) && suggestions.every(s => typeof s === 'string')) {
+      return suggestions;
+    } else {
+      throw new Error("[FORMAT_ERROR] A IA não retornou as tendências no formato de array de strings esperado.");
+    }
+
+  } catch (error) {
+    console.error("Erro ao gerar tópicos de tendência:", error);
+    const commonError = handleCommonErrors(error);
+    if (commonError) throw commonError;
+
+    throw new Error("[CONTENT_GEN_ERROR] Falha ao buscar tópicos de tendência.");
+  }
+};
+
 export const generateMultiplePostVariations = async (theme: string, platform: string, tone: string, originalCaption: string): Promise<GeneratedContent[]> => {
   const specifics = getPlatformSpecifics(platform);
 

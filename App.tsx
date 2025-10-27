@@ -395,6 +395,14 @@ const App: React.FC = () => {
         };
         handleGenerate(options);
     };
+    
+    const handlePostUpdate = (updatedPost: PostData) => {
+        setGeneratedPost(updatedPost);
+        setHistory(prevHistory =>
+            prevHistory.map(p => (p.id === updatedPost.id ? updatedPost : p))
+        );
+    };
+
 
     return (
         <div className="min-h-screen font-sans pb-16 sm:pb-12">
@@ -420,7 +428,7 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        {generatedPost && <PostOutput data={generatedPost} />}
+                        {generatedPost && <PostOutput data={generatedPost} onUpdate={handlePostUpdate} />}
                         {generatedVideo && <VideoOutput data={generatedVideo} />}
                         {generatedScript && <ScriptOutput data={generatedScript} />}
                         {generatedAudio && <AudioOutput data={generatedAudio} />}

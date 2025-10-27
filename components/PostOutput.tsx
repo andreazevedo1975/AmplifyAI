@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { PostData } from '../types';
 import { CopyIcon } from './icons/CopyIcon';
-import { SaveIcon } from './icons/SaveIcon';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, ImageRun } from 'docx';
 import { PdfIcon } from './icons/PdfIcon';
@@ -13,17 +12,19 @@ import { HashtagIcon } from './icons/HashtagIcon';
 import { ScriptIcon } from './icons/ScriptIcon';
 import { RegenerateIcon } from './icons/RegenerateIcon';
 import { UseIcon } from './icons/UseIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
+import { ImageIcon } from './icons/ImageIcon';
 
 interface PostOutputProps {
   data: PostData;
+  onUpdate: (updatedPost: PostData) => void;
 }
 
-export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
+export const PostOutput: React.FC<PostOutputProps> = ({ data, onUpdate }) => {
   const [copied, setCopied] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
-  const [saveButtonText, setSaveButtonText] = useState('Salvar Post');
   
   const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -56,47 +57,40 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
     setTimeout(() => setCopied(''), 2000);
   };
 
-  const handleSavePost = async () => {
-    if (isSaving) return;
-    setIsSaving(true);
-    setSaveButtonText('Salvando...');
-
+  const handleCopyFullText = () => {
     const fullText = `${currentPost.caption}\n\n${currentPost.hashtags}`;
+    handleCopy(fullText, 'full_text');
+  };
 
+  const handleDownloadImage = async () => {
+    if (isDownloadingImage) return;
+    setIsDownloadingImage(true);
     try {
-      const response = await fetch(currentPost.imageUrl);
-       if (!response.ok) {
-        throw new Error(`Falha ao buscar imagem: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      const fileExtension = blob.type.split('/')[1] || 'jpeg';
-      link.setAttribute('download', `amplifyai-${getCleanThemeForFilename()}.${fileExtension}`);
-      
-      document.body.appendChild(link);
-      link.click();
-      
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      await navigator.clipboard.writeText(fullText);
-
-      setSaveButtonText('Salvo! Texto copiado.');
-
+        const response = await fetch(currentPost.imageUrl);
+        if (!response.ok) {
+            throw new Error(`Falha ao buscar imagem: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        const fileExtension = blob.type.split('/')[1] || 'jpeg';
+        link.setAttribute('download', `amplifyai-img-${getCleanThemeForFilename()}.${fileExtension}`);
+        
+        document.body.appendChild(link);
+        link.click();
+        
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erro ao salvar o post:', error);
-      alert('Não foi possível salvar o post. Verifique o console para mais detalhes.');
-      setSaveButtonText('Erro ao Salvar');
+        console.error('Erro ao baixar a imagem:', error);
+        alert('Não foi possível baixar a imagem. Verifique o console para mais detalhes.');
     } finally {
-      setTimeout(() => {
-        setIsSaving(false);
-        setSaveButtonText('Salvar Post');
-      }, 3000);
+        setIsDownloadingImage(false);
     }
   };
+
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
@@ -280,7 +274,9 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
   };
 
   const handleUseVariation = (variation: { caption: string; hashtags: string }) => {
-    setCurrentPost(prev => ({ ...prev, ...variation }));
+    const updatedPost = { ...currentPost, ...variation };
+    setCurrentPost(updatedPost);
+    onUpdate(updatedPost);
     setVariations(null); // Hide variations after selecting one
   };
 
@@ -389,14 +385,25 @@ export const PostOutput: React.FC<PostOutputProps> = ({ data }) => {
         <div className="mt-8 pt-6 border-t border-slate-700/50">
             <h3 className="text-center font-bold text-slate-300 mb-4">Opções de Exportação</h3>
             <div className="flex flex-wrap justify-center gap-3">
-                <button onClick={handleSavePost} disabled={isSaving} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
-                    <SaveIcon /> {saveButtonText}
+                <button
+                  onClick={handleCopyFullText}
+                  className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-colors ${
+                    copied === 'full_text'
+                      ? 'bg-green-500/20 text-green-300'
+                      : 'text-slate-200 bg-slate-700/60 hover:bg-slate-700'
+                  }`}
+                >
+                  {copied === 'full_text' ? <CheckCircleIcon className="w-5 h-5" /> : <CopyIcon className="w-5 h-5" />}
+                  {copied === 'full_text' ? 'Copiado!' : 'Copiar Texto'}
+                </button>
+                <button onClick={handleDownloadImage} disabled={isDownloadingImage} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    {isDownloadingImage ? <Spinner/> : <ImageIcon />} {isDownloadingImage ? 'Baixando...' : 'Baixar Imagem'}
                 </button>
                  <button onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
-                    {isDownloadingPdf ? <Spinner/> : <PdfIcon />} Salvar .pdf
+                    {isDownloadingPdf ? <Spinner/> : <PdfIcon />} {isDownloadingPdf ? 'Salvando...' : 'Salvar .pdf'}
                 </button>
                 <button onClick={handleDownloadDocx} disabled={isDownloadingDocx} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full text-slate-200 bg-slate-700/60 hover:bg-slate-700 transition-colors disabled:opacity-50">
-                    {isDownloadingDocx ? <Spinner/> : <DocxIcon />} Salvar .docx
+                    {isDownloadingDocx ? <Spinner/> : <DocxIcon />} {isDownloadingDocx ? 'Salvando...' : 'Salvar .docx'}
                 </button>
             </div>
         </div>

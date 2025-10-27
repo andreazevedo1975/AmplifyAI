@@ -155,7 +155,10 @@ export const History: React.FC<HistoryProps> = ({ items, onSelect, onDelete, onR
                       <p className="font-semibold text-slate-100 line-clamp-2 leading-tight">{post.theme}</p>
                   </div>
               </div>
-              <div className="p-4 bg-slate-800/50">
+              <div className="p-4 bg-slate-800/50 flex-grow flex flex-col justify-between">
+                <p className="text-sm text-slate-300 line-clamp-3 mb-3">
+                  {post.caption}
+                </p>
                 <div className="flex justify-end items-center gap-2">
                   <button onClick={() => onSelect(post)} title="Visualizar" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><EyeIcon /></button>
                   <button onClick={() => onRegenerate(post)} title="Gerar Novo" className="p-2 rounded-full text-slate-300 bg-slate-700/50 hover:bg-slate-700 hover:text-white transition-all"><RegenerateIcon /></button>

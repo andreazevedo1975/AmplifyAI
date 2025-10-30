@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { InstagramIcon, FacebookIcon, LinkedInIcon, TwitterXIcon, TikTokIcon, PinterestIcon, YouTubeIcon, RedditIcon, TumblrIcon, QuoraIcon, WhatsAppIcon, TelegramIcon } from './icons/PlatformIcons';
 import { WarningIcon } from './icons/WarningIcon';
 import { generateInspirationalIdea, generateTrendingTopics } from '../services/geminiService';
@@ -10,6 +10,7 @@ import { ManageAccountsIcon } from './icons/ManageAccountsIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import type { ToneProfile, GenerateOptions } from '../types';
 import { TrendingUpIcon } from './icons/TrendingUpIcon';
+import { HistoryIcon } from './icons/HistoryIcon';
 
 
 interface InputFormProps {
@@ -92,7 +93,6 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [newProfileUrl, setNewProfileUrl] = useState('');
   const [profileError, setProfileError] = useState<string | null>(null);
   
-  // State for Tone Profiles
   const [isToneModalOpen, setIsToneModalOpen] = useState(false);
   const [savedToneProfiles, setSavedToneProfiles] = useState<ToneProfile[]>([]);
   const [editingToneProfile, setEditingToneProfile] = useState<ToneProfile | null>(null);
@@ -101,12 +101,15 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [toneFormExamples, setToneFormExamples] = useState('');
   const [toneFormError, setToneFormError] = useState<string | null>(null);
 
-  // State for Trend Hunter
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false);
   const [trendKeyword, setTrendKeyword] = useState('');
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
   const [isSearchingTrends, setIsSearchingTrends] = useState(false);
   const [trendSearchError, setTrendSearchError] = useState<string | null>(null);
+
+  const [topicHistory, setTopicHistory] = useState<string[]>([]);
+  const [isTopicHistoryOpen, setIsTopicHistoryOpen] = useState(false);
+  const historyContainerRef = useRef<HTMLDivElement>(null);
 
   const exampleProfiles = [
     { name: 'NASA (Educacional)', url: 'https://www.instagram.com/nasa/' },
@@ -115,38 +118,53 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     { name: "Wendy's (Humor Ousado)", url: 'https://twitter.com/wendys' },
   ];
   
-  // Load profiles from localStorage on mount
   useEffect(() => {
     try {
       const storedProfiles = localStorage.getItem('amplifyai_profiles');
-      if (storedProfiles) {
-        setSavedProfiles(JSON.parse(storedProfiles));
-      }
+      if (storedProfiles) setSavedProfiles(JSON.parse(storedProfiles));
+
       const storedTones = localStorage.getItem('amplifyai_tone_profiles');
-      if (storedTones) {
-        setSavedToneProfiles(JSON.parse(storedTones));
-      }
+      if (storedTones) setSavedToneProfiles(JSON.parse(storedTones));
+
+      const storedHistory = localStorage.getItem('amplifyai_topic_history');
+      if (storedHistory) setTopicHistory(JSON.parse(storedHistory));
+
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
     }
   }, []);
 
-  // Save profiles to localStorage whenever they change
   useEffect(() => {
     try {
       localStorage.setItem('amplifyai_profiles', JSON.stringify(savedProfiles));
-    } catch (error) {
-      console.error("Failed to save profiles to localStorage", error);
-    }
+    } catch (error) { console.error("Failed to save profiles", error); }
   }, [savedProfiles]);
   
   useEffect(() => {
     try {
       localStorage.setItem('amplifyai_tone_profiles', JSON.stringify(savedToneProfiles));
-    } catch (error) {
-      console.error("Failed to save tone profiles to localStorage", error);
-    }
+    } catch (error) { console.error("Failed to save tones", error); }
   }, [savedToneProfiles]);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('amplifyai_topic_history', JSON.stringify(topicHistory));
+    } catch (error) {
+        console.error("Failed to save topic history to localStorage", error);
+    }
+  }, [topicHistory]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (historyContainerRef.current && !historyContainerRef.current.contains(event.target as Node)) {
+            setIsTopicHistoryOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleAddProfile = () => {
     setProfileError(null);
@@ -203,7 +221,6 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       setSavedToneProfiles([...savedToneProfiles, newProfile]);
     }
     
-    // Reset form
     setEditingToneProfile(null);
     setToneFormName('');
     setToneFormDescription('');
@@ -213,7 +230,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const handleDeleteToneProfile = (idToDelete: string) => {
       setSavedToneProfiles(savedToneProfiles.filter(p => p.id !== idToDelete));
       if (selectedTone === idToDelete) {
-        setSelectedTone('Envolvente'); // Reset to default if deleted
+        setSelectedTone('Envolvente');
       }
   };
 
@@ -266,15 +283,39 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const handleSelectTrend = (topic: string) => {
       setTheme(topic);
       setIsTrendModalOpen(false);
-      // Reset modal state
       setTrendKeyword('');
       setTrendingTopics([]);
       setTrendSearchError(null);
   };
 
+  const handleSelectFromHistory = (topic: string) => {
+    if (mode === 'post' || mode === 'video') setTheme(topic);
+    else if (mode === 'script') setScriptTitle(topic);
+    else if (mode === 'audio') setAudioText(topic);
+    setIsTopicHistoryOpen(false);
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm("Tem certeza que deseja limpar o histórico de tópicos recentes?")) {
+        setTopicHistory([]);
+        setIsTopicHistoryOpen(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let newTopic = '';
+    if (mode === 'post' || mode === 'video') newTopic = theme;
+    else if (mode === 'script') newTopic = scriptTitle;
+    else if (mode === 'audio') newTopic = audioText;
+
+    if (newTopic.trim()) {
+        setTopicHistory(prev => {
+            const updatedHistory = [newTopic.trim(), ...prev.filter(t => t !== newTopic.trim())];
+            return updatedHistory.slice(0, 20);
+        });
+    }
 
     let imageInput = '';
     if (imageOption === 'url') {
@@ -321,15 +362,53 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     return true;
   };
   
+  const TopicHistoryButton = () => (
+    <div className="relative" ref={historyContainerRef}>
+        <button type="button" onClick={() => setIsTopicHistoryOpen(p => !p)} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors">
+            <HistoryIcon />
+            Recentes
+        </button>
+        {isTopicHistoryOpen && (
+             <div className="absolute top-full right-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 max-h-80 overflow-y-auto custom-scrollbar">
+                 {topicHistory.length > 0 ? (
+                     <ul>
+                         {topicHistory.map((topic, index) => (
+                             <li key={index}>
+                                 <button
+                                     onClick={() => handleSelectFromHistory(topic)}
+                                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors truncate"
+                                     title={topic}
+                                 >
+                                     {topic}
+                                 </button>
+                             </li>
+                         ))}
+                          <li className="border-t border-slate-700">
+                             <button onClick={handleClearHistory} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-900/50 transition-colors flex items-center gap-2">
+                                 <TrashIcon /> Limpar Histórico
+                             </button>
+                         </li>
+                     </ul>
+                 ) : (
+                     <p className="px-4 py-3 text-sm text-slate-400 text-center">Nenhum tópico recente.</p>
+                 )}
+             </div>
+        )}
+    </div>
+  );
+
   const renderModeSpecificFields = () => {
     switch(mode) {
       case 'audio':
         return (
           <>
             <div className="mb-6">
-              <label htmlFor="audioText" className="block text-sm font-medium text-slate-300 mb-2">
-                Texto para Narração
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label htmlFor="audioText" className="block text-sm font-medium text-slate-300">
+                    Texto para Narração
+                </label>
+                <TopicHistoryButton />
+              </div>
               <textarea
                 id="audioText"
                 value={audioText}
@@ -399,9 +478,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         return (
           <>
             <div className="mb-6">
-              <label htmlFor="theme" className="block text-sm font-medium text-slate-300 mb-2">
-                Prompt para o Vídeo
-              </label>
+                <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="theme" className="block text-sm font-medium text-slate-300">
+                        Prompt para o Vídeo
+                    </label>
+                    <TopicHistoryButton />
+                </div>
               <textarea
                 id="theme"
                 value={theme}
@@ -445,9 +527,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
          return (
            <>
             <div className="mb-6">
-              <label htmlFor="scriptTitle" className="block text-sm font-medium text-slate-300 mb-2">
-                Título do Vídeo
-              </label>
+                <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="scriptTitle" className="block text-sm font-medium text-slate-300">
+                        Título do Vídeo
+                    </label>
+                    <TopicHistoryButton />
+                </div>
               <input
                 id="scriptTitle"
                 type="text"
@@ -479,9 +564,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         return (
           <>
             <div className="mb-6">
-              <label htmlFor="theme" className="block text-sm font-medium text-slate-300 mb-2">
-                Tema Central do Post
-              </label>
+                <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="theme" className="block text-sm font-medium text-slate-300">
+                        Tema Central do Post
+                    </label>
+                    <TopicHistoryButton />
+                </div>
                <div className="relative">
                 <textarea
                   id="theme"

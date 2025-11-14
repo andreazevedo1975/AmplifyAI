@@ -39,6 +39,14 @@ export interface AudioOutputData {
   style?: string;
 }
 
+export interface WhatsAppAgentData {
+  messages: string[];
+  messageType: string;
+  businessContext: string;
+  objective: string;
+  tone: string;
+}
+
 export interface DriveStatus {
   type: 'info' | 'success' | 'error';
   message: string;
@@ -52,7 +60,7 @@ export interface ToneProfile {
 }
 
 export interface GenerateOptions {
-  mode: 'post' | 'video' | 'script' | 'audio';
+  mode: 'post' | 'video' | 'script' | 'audio' | 'whatsapp-agent';
   theme: string;
   imageInput: string;
   platform: string;
@@ -67,4 +75,8 @@ export interface GenerateOptions {
   audioVoice?: string;
   audioEmotion?: string;
   audioStyle?: string;
+  whatsappMessageType?: string;
+  whatsappBusinessContext?: string;
+  whatsappObjective?: string;
+  whatsappTone?: string;
 }

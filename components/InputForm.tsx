@@ -62,8 +62,11 @@ const voiceOptions = [
 const emotionOptions = ['Amigável', 'Feliz', 'Triste', 'Sério', 'Empolgado', 'Calmo'];
 const styleOptions = ['Conversacional', 'Narrador', 'Rápido', 'Lento', 'Sussurrado'];
 
+const whatsappMessageTypes = ['Saudação', 'Resposta Automática', 'Campanha', 'Follow-up', 'Suporte', 'Vendas'];
+const whatsappToneOptions = ['Amigável', 'Profissional', 'Casual', 'Formal', 'Empático', 'Persuasivo'];
+
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
-  const [mode, setMode] = useState<'post' | 'video' | 'script' | 'audio'>('post');
+  const [mode, setMode] = useState<'post' | 'video' | 'script' | 'audio' | 'whatsapp-agent'>('post');
   const [theme, setTheme] = useState('');
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageOption, setImageOption] = useState<'prompt' | 'url' | 'none'>('prompt');
@@ -83,6 +86,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [audioVoice, setAudioVoice] = useState(voiceOptions[0].id);
   const [audioEmotion, setAudioEmotion] = useState('Amigável');
   const [audioStyle, setAudioStyle] = useState('Conversacional');
+
+  const [whatsappMessageType, setWhatsappMessageType] = useState('Saudação');
+  const [whatsappBusinessContext, setWhatsappBusinessContext] = useState('');
+  const [whatsappObjective, setWhatsappObjective] = useState('');
+  const [whatsappTone, setWhatsappTone] = useState('Amigável');
   
   const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
   const [ideaError, setIdeaError] = useState<string | null>(null);
@@ -356,6 +364,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
     }
     if (mode === 'audio') {
         return audioText.trim() !== '';
+    }
+    if (mode === 'whatsapp-agent') {
+        return whatsappBusinessContext.trim() !== '' && whatsappObjective.trim() !== '';
     }
     if (theme.trim() === '') return false;
     if (imageOption === 'url' && (!imageUrl.trim() || !isUrl(imageUrl))) return false;
